@@ -1,0 +1,30 @@
+appId: com.teleexport.app
+productName: TeleExport
+directories:
+  buildResources: build
+  output: release
+files:
+  - dist/**/*
+  - electron/**/*
+  - package.json
+extraResources:
+  - from: python/
+    to: python/
+    filter:
+      - "**/*"
+      - "!__pycache__/**"
+      - "!*.pyc"
+mac:
+  category: public.app-category.utilities
+  target:
+    - dmg
+    - zip
+win:
+  target:
+    - nsis
+    - portable
+linux:
+  target:
+    - AppImage
+    - deb
+  category: Utility

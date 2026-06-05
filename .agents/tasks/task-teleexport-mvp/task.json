@@ -1,0 +1,7 @@
+{
+  "task_id": "task-teleexport-mvp",
+  "task_description": "Implement the TeleExport desktop application based on the technical plan. Create the full Electron + React + Python project with IPC communication, auth flow, export engine, HTML formatter, and all UI components.",
+  "status": "in_progress",
+  "feature_order": ["FEAT-001", "FEAT-002", "FEAT-003", "FEAT-004"],
+  "blocked_reason": null
+}
