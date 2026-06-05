@@ -2,7 +2,7 @@
   "id": "FEAT-001",
   "type": "fix",
   "description": "Fix Python backend bugs: IPC server error handling, auth response fields, timezone handling, and missing handler responses",
-  "status": "in_progress",
+  "status": "completed",
   "steps": [
     "1. Fix IPC Server error handler variable scope bug in teleexport/python/ipc/server.py line 63: replace `msg.get('id') if 'msg' in dir() else None` with a safer pattern that captures msg_id before the try block or uses a local variable initialized to None.",
     "2. Fix IPC Server handler returning None leaving calls hanging (teleexport/python/ipc/server.py line 56): When a handler returns None, the server should still send a response with `result: null` back to the Electron side. Change the check from `if result is not None` to always send a result response (use `result` which defaults to None).",
@@ -24,5 +24,5 @@
     "cd /projects/sandbox/Export-bot/teleexport && python -m pytest tests/python -v"
   ],
   "blocked_reason": null,
-  "findings": ""
+  "findings": "All 7 bugs fixed. Two existing tests needed updates: test_sign_in_needs_2fa (field rename) and test_date_filters (UTC normalization). All 68 tests pass. TypeScript builds clean."
 }
