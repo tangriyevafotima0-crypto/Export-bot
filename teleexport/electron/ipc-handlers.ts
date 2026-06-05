@@ -1,4 +1,4 @@
-import { ipcMain, dialog, shell, BrowserWindow } from 'electron';
+import { app, ipcMain, dialog, shell, BrowserWindow } from 'electron';
 import { PythonBridge } from './python-bridge';
 
 export function registerIPCHandlers(bridge: PythonBridge, getMainWindow: () => BrowserWindow | null): void {
@@ -10,6 +10,27 @@ export function registerIPCHandlers(bridge: PythonBridge, getMainWindow: () => B
     const win = getMainWindow();
     if (win) {
       win.webContents.send('python:event', eventName, data);
+    }
+  });
+
+  bridge.on('error', (err: Error) => {
+    const win = getMainWindow();
+    if (win) {
+      win.webContents.send('python:error', { message: err.message });
+    }
+  });
+
+  bridge.on('closed', (code: number | null) => {
+    const win = getMainWindow();
+    if (win) {
+      win.webContents.send('python:closed', { code });
+    }
+  });
+
+  bridge.on('restarting', (attempt: number) => {
+    const win = getMainWindow();
+    if (win) {
+      win.webContents.send('python:restarting', { attempt });
     }
   });
 
@@ -27,7 +48,6 @@ export function registerIPCHandlers(bridge: PythonBridge, getMainWindow: () => B
   });
 
   ipcMain.handle('app:getVersion', () => {
-    const { app } = require('electron');
     return app.getVersion();
   });
 

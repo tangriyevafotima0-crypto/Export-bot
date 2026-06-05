@@ -44,12 +44,18 @@ interface PendingCall {
   timer: NodeJS.Timeout;
 }
 
+const MAX_RESTART_ATTEMPTS = 3;
+const SHUTDOWN_TIMEOUT_MS = 5000;
+
 export class PythonBridge extends EventEmitter {
   private process: ChildProcess | null = null;
   private pendingCalls: Map<string, PendingCall> = new Map();
   private callId = 0;
   private buffer = '';
   private pythonPath: string;
+  private ready = false;
+  private restartAttempts = 0;
+  private stopping = false;
 
   constructor() {
     super();
@@ -62,12 +68,20 @@ export class PythonBridge extends EventEmitter {
   }
 
   start(): void {
+    this.stopping = false;
+    this.ready = false;
+
     this.process = spawn('python', [this.pythonPath], {
       stdio: ['pipe', 'pipe', 'pipe'],
       env: { ...process.env },
     });
 
     this.process.stdout?.on('data', (data: Buffer) => {
+      if (!this.ready) {
+        this.ready = true;
+        this.restartAttempts = 0;
+        this.emit('ready');
+      }
       this.buffer += data.toString();
       this.processBuffer();
     });
@@ -78,19 +92,60 @@ export class PythonBridge extends EventEmitter {
 
     this.process.on('close', (code) => {
       console.log(`[PythonBridge] Process exited with code ${code}`);
+      this.ready = false;
+      this.process = null;
       this.emit('closed', code);
       this.rejectAllPending('Python process exited');
+
+      if (!this.stopping && code !== 0) {
+        this.attemptRestart();
+      }
     });
 
     this.process.on('error', (err) => {
       console.error('[PythonBridge] Process error:', err);
+      this.ready = false;
       this.emit('error', err);
+      this.rejectAllPending(`Python process error: ${err.message}`);
     });
+  }
+
+  private attemptRestart(): void {
+    if (this.restartAttempts >= MAX_RESTART_ATTEMPTS) {
+      this.emit('error', new Error(`Python process failed after ${MAX_RESTART_ATTEMPTS} restart attempts`));
+      return;
+    }
+
+    this.restartAttempts++;
+    const delay = Math.pow(2, this.restartAttempts) * 1000;
+    this.emit('restarting', this.restartAttempts);
+
+    setTimeout(() => {
+      if (!this.stopping) {
+        this.start();
+      }
+    }, delay);
+  }
+
+  restart(): void {
+    this.restartAttempts = 0;
+    if (this.process) {
+      this.stopping = true;
+      this.process.kill('SIGTERM');
+      this.process = null;
+    }
+    this.rejectAllPending('Bridge restarting');
+    this.stopping = false;
+    this.start();
   }
 
   async call(method: string, params: Record<string, unknown> = {}, timeout = 30000): Promise<unknown> {
     if (!this.process || !this.process.stdin) {
       throw new Error('Python process is not running');
+    }
+
+    if (!this.ready) {
+      throw new Error('Python process is not ready');
     }
 
     const id = String(++this.callId);
@@ -109,11 +164,33 @@ export class PythonBridge extends EventEmitter {
   }
 
   stop(): void {
+    this.stopping = true;
+
     if (this.process) {
-      this.process.kill('SIGTERM');
+      const proc = this.process;
+      proc.kill('SIGTERM');
+
+      const killTimer = setTimeout(() => {
+        try {
+          proc.kill('SIGKILL');
+        } catch {
+          // Process may have already exited
+        }
+      }, SHUTDOWN_TIMEOUT_MS);
+
+      proc.on('close', () => {
+        clearTimeout(killTimer);
+      });
+
       this.process = null;
     }
+
+    this.ready = false;
     this.rejectAllPending('Bridge stopped');
+  }
+
+  isReady(): boolean {
+    return this.ready;
   }
 
   private processBuffer(): void {
