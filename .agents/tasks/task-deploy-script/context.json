@@ -1,0 +1,25 @@
+{
+  "project_type": "Electron desktop app (React+TS frontend, Python backend) being deployed headless on server",
+  "language": "Python 3.11+ (backend), TypeScript/React (frontend - not needed for server deploy)",
+  "build_system": "pip/pyproject.toml for Python, npm for Node (only Python needed for server)",
+  "test_framework": "pytest with pytest-asyncio for Python, vitest for TypeScript",
+  "build_command": "N/A for deploy script (bash script)",
+  "test_command": "bash -n deploy.sh (syntax check)",
+  "verification_instructions": "1. Run bash -n deploy.sh to verify syntax. 2. Check deploy.sh is executable. 3. Verify run_server.py can be imported without errors.",
+  "snapshot_or_generated_files": null,
+  "setup_instructions": "N/A - creating deployment automation",
+  "environment_constraints": "OPEN_INTERNET - full network access. Target: Ubuntu server 2GB RAM with Python 3.11+ and systemd.",
+  "contribution_requirements": "Script must handle: system deps install, Python 3.11+ via deadsnakes PPA, pip deps from pyproject.toml, interactive credential prompting, config file creation, systemd service setup, error handling with colored output",
+  "key_patterns": "Config stored in ~/.teleexport/config/settings.json with api_id and api_hash fields. Sessions in ~/.teleexport/sessions/. Python backend entry point is python/main.py using JSON-RPC over stdin/stdout. For headless server, need a standalone runner that bypasses IPC and runs directly.",
+  "relevant_files": [
+    "teleexport/python/pyproject.toml",
+    "teleexport/python/main.py",
+    "teleexport/python/core/config.py",
+    "teleexport/python/core/client.py",
+    "teleexport/python/core/auth.py",
+    "teleexport/python/ipc/handlers.py",
+    "teleexport/python/ipc/server.py",
+    "teleexport/python/export/engine.py"
+  ],
+  "directory_structure": "teleexport/ - project root; teleexport/python/ - Python backend (core/, export/, formatters/, ipc/, utils/); teleexport/electron/ - Electron main process; teleexport/src/ - React frontend; Config: ~/.teleexport/ (sessions/, config/); Exports: ~/TeleExport/exports/"
+}
