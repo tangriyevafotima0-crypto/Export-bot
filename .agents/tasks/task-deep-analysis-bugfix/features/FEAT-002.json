@@ -2,7 +2,7 @@
   "id": "FEAT-002",
   "type": "fix",
   "description": "Fix IPC data serialization mismatch between Python (snake_case) and TypeScript (camelCase) - the core integration bug that makes the app non-functional at runtime",
-  "status": "in_progress",
+  "status": "completed",
   "steps": [
     "1. Add a snake_case-to-camelCase utility in the Electron python-bridge layer (teleexport/electron/python-bridge.ts): Add a `toCamelCase(obj)` recursive helper that converts all snake_case keys in response objects to camelCase before resolving promises. Apply it in handleMessage() to `message.result` and `message.data` (for events).",
     "2. Add a camelCase-to-snake_case utility for outgoing params: Add a `toSnakeCase(obj)` recursive helper. Apply it in the `call()` method to the params object before sending to Python. This way the frontend can use camelCase consistently and the bridge handles transformation.",
@@ -29,5 +29,5 @@
     "cd /projects/sandbox/Export-bot/teleexport && python -m pytest tests/python -v"
   ],
   "blocked_reason": null,
-  "findings": ""
+  "findings": "All steps completed successfully. Bridge auto-converts snake_case<->camelCase bidirectionally. Note: Python's `requires_2fa` becomes `requires2fa` in JS (no underscore before digit). All TypeScript compilation (frontend + electron) passes, Vite build succeeds, all 68 Python tests pass."
 }
