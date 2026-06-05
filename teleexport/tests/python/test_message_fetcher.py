@@ -1,5 +1,5 @@
 """Tests for the MessageFetcher."""
-from datetime import datetime
+from datetime import datetime, timezone
 from unittest.mock import MagicMock, AsyncMock
 
 import pytest
@@ -29,8 +29,8 @@ class TestMessageFetcherInit:
             date_from=date_from,
             date_to=date_to,
         )
-        assert fetcher.date_from == date_from
-        assert fetcher.date_to == date_to
+        assert fetcher.date_from == datetime(2024, 1, 1, tzinfo=timezone.utc)
+        assert fetcher.date_to == datetime(2024, 6, 30, tzinfo=timezone.utc)
 
     def test_no_date_filters(self, mock_telegram_client, mock_entity):
         """Test initialization without date filters."""

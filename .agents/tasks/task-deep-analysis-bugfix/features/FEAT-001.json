@@ -1,0 +1,28 @@
+{
+  "id": "FEAT-001",
+  "type": "fix",
+  "description": "Fix Python backend bugs: IPC server error handling, auth response fields, timezone handling, and missing handler responses",
+  "status": "in_progress",
+  "steps": [
+    "1. Fix IPC Server error handler variable scope bug in teleexport/python/ipc/server.py line 63: replace `msg.get('id') if 'msg' in dir() else None` with a safer pattern that captures msg_id before the try block or uses a local variable initialized to None.",
+    "2. Fix IPC Server handler returning None leaving calls hanging (teleexport/python/ipc/server.py line 56): When a handler returns None, the server should still send a response with `result: null` back to the Electron side. Change the check from `if result is not None` to always send a result response (use `result` which defaults to None).",
+    "3. Fix auth.check_session to return user info when session exists (teleexport/python/core/auth.py): The `check_session` method returns `{has_session: True, phone_hint: ...}` but the frontend expects a `user` field. Add user info to the response when authorized - retrieve and include id, first_name, last_name, username, phone from get_me().",
+    "4. Fix auth.sign_in response field mismatch (teleexport/python/core/auth.py): The sign_in method returns `needs_2fa: True` on 2FA required, but frontend checks `requires_2fa`. Change the Python response to use `requires_2fa` to match the frontend expectation in auth.store.ts line checking `result.requires_2fa`.",
+    "5. Fix timezone-aware/naive datetime comparison in MessageFetcher (teleexport/python/export/message_fetcher.py): Instead of stripping tzinfo from msg.date, ensure date_from and date_to are timezone-aware (UTC) when they are set. In the ExportConfig initialization in handlers.py, ensure dates parsed via fromisoformat get UTC timezone attached if they are naive. Also update the comparison in message_fetcher.py to handle both cases safely.",
+    "6. Fix export_start handler in teleexport/python/ipc/handlers.py: The asyncio.create_task(run_export()) call creates an untracked task. Store a reference to the task to prevent silent garbage collection and potential 'Task exception was never retrieved' warnings. Store it in `app.exports[export_id]` as a tuple of (engine, task) or add task tracking.",
+    "7. Fix the chats.list handler pagination logic in teleexport/python/ipc/handlers.py: Currently it scans ALL dialogs up to `limit`, then filters by search, then paginates. The `limit` param is used for both scan_all AND slice. Fix so scan uses a reasonable max (e.g., 500) and the limit/offset apply only to the final result."
+  ],
+  "acceptance_criteria": [
+    "All 68 existing Python tests still pass",
+    "IPC server always sends a response for every request (no hanging calls)",
+    "auth.check_session returns user object when session is valid",
+    "auth.sign_in returns `requires_2fa` field (not `needs_2fa`) for 2FA scenarios",
+    "MessageFetcher properly compares timezone-aware and naive datetimes without errors",
+    "Background export tasks are properly tracked and don't silently lose exceptions"
+  ],
+  "verification": [
+    "cd /projects/sandbox/Export-bot/teleexport && python -m pytest tests/python -v"
+  ],
+  "blocked_reason": null,
+  "findings": ""
+}
