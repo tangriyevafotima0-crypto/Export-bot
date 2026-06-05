@@ -1,7 +1,17 @@
 """Message fetcher for efficient batch retrieval from Telegram."""
 import asyncio
 from typing import AsyncIterator, Optional
-from datetime import datetime
+from datetime import datetime, timezone
+
+
+def _ensure_utc(dt: Optional[datetime]) -> Optional[datetime]:
+    """Ensure a datetime is timezone-aware (UTC). If naive, assume UTC."""
+    if dt is None:
+        return None
+    if dt.tzinfo is None:
+        return dt.replace(tzinfo=timezone.utc)
+    return dt
+
 
 from telethon import TelegramClient
 
@@ -23,8 +33,8 @@ class MessageFetcher:
     ):
         self.client = client
         self.entity = entity
-        self.date_from = date_from
-        self.date_to = date_to
+        self.date_from = _ensure_utc(date_from)
+        self.date_to = _ensure_utc(date_to)
         self.batch_size = batch_size
         self.processed = 0
         self.total: Optional[int] = None
@@ -39,7 +49,7 @@ class MessageFetcher:
                 offset_id=0,
                 limit=None,
             ):
-                if self.date_from and msg.date.replace(tzinfo=None) < self.date_from:
+                if self.date_from and _ensure_utc(msg.date) < self.date_from:
                     break
                 count += 1
             self.total = count
@@ -56,7 +66,7 @@ class MessageFetcher:
                     limit=None,
                     wait_time=0,
                 ):
-                    if self.date_from and msg.date.replace(tzinfo=None) < self.date_from:
+                    if self.date_from and _ensure_utc(msg.date) < self.date_from:
                         if messages:
                             yield messages
                         break
@@ -89,7 +99,7 @@ class MessageFetcher:
             offset_date=self.date_to,
             limit=None,
         ):
-            if self.date_from and msg.date.replace(tzinfo=None) < self.date_from:
+            if self.date_from and _ensure_utc(msg.date) < self.date_from:
                 if messages:
                     yield messages
                 break

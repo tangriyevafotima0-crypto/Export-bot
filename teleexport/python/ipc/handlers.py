@@ -1,7 +1,7 @@
 """Register all RPC method handlers for the IPC server."""
 import json
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 
 from .server import IPCServer
@@ -99,7 +99,9 @@ def register_handlers(server: IPCServer, app):
         limit = params.get("limit", 100)
         offset = params.get("offset", 0)
         search = params.get("search")
-        chats = await scanner.scan_all(limit=limit)
+        # Scan a reasonable max number of dialogs, independent of pagination
+        scan_limit = 500
+        chats = await scanner.scan_all(limit=scan_limit)
 
         if search:
             search_lower = search.lower()
@@ -135,8 +137,12 @@ def register_handlers(server: IPCServer, app):
         date_to = None
         if params.get("date_from"):
             date_from = datetime.fromisoformat(params["date_from"])
+            if date_from.tzinfo is None:
+                date_from = date_from.replace(tzinfo=timezone.utc)
         if params.get("date_to"):
             date_to = datetime.fromisoformat(params["date_to"])
+            if date_to.tzinfo is None:
+                date_to = date_to.replace(tzinfo=timezone.utc)
 
         media_types = set(
             params.get("media_types", DEFAULT_SETTINGS["media_types"])
@@ -158,7 +164,6 @@ def register_handlers(server: IPCServer, app):
             server.send_event(event_name, data)
 
         engine = ExportEngine(app.client, config, progress_callback)
-        app.exports[export_id] = engine
 
         # Run export in background
         import asyncio
@@ -188,13 +193,15 @@ def register_handlers(server: IPCServer, app):
             finally:
                 app.exports.pop(export_id, None)
 
-        asyncio.create_task(run_export())
+        task = asyncio.create_task(run_export())
+        app.exports[export_id] = (engine, task)
         return {"export_id": export_id}
 
     async def export_cancel(params, msg_id):
         export_id = params.get("export_id")
-        engine = app.exports.get(export_id)
-        if engine:
+        entry = app.exports.get(export_id)
+        if entry:
+            engine, task = entry
             engine.cancel()
             return {"success": True}
         return {"success": False}

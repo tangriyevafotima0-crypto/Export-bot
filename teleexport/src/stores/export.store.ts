@@ -58,17 +58,17 @@ export const useExportStore = create<ExportState>((set, get) => ({
     set({ status: 'running', chatProgress: {}, overallPercent: 0, result: null, error: null });
     try {
       const result = await window.teleexport.python.call('export.start', {
-        chat_ids: config.chatIds,
+        chatIds: config.chatIds,
         format: config.format,
-        date_from: config.dateFrom,
-        date_to: config.dateTo,
-        media_types: config.mediaTypes,
-        output_dir: config.outputDir,
-        include_replies: config.includeReplies,
-        include_forwards: config.includeForwards,
-        max_file_size_mb: config.maxFileSizeMb,
-      }) as { export_id: string };
-      set({ exportId: result.export_id });
+        dateFrom: config.dateFrom,
+        dateTo: config.dateTo,
+        mediaTypes: config.mediaTypes,
+        outputDir: config.outputDir,
+        includeReplies: config.includeReplies,
+        includeForwards: config.includeForwards,
+        maxFileSizeMb: config.maxFileSizeMb,
+      }) as { exportId: string };
+      set({ exportId: result.exportId });
     } catch (err) {
       set({ status: 'error', error: { chatId: 0, errorMessage: (err as Error).message, recoverable: false } });
     }
@@ -78,7 +78,7 @@ export const useExportStore = create<ExportState>((set, get) => ({
     const { exportId } = get();
     if (!exportId) return;
     try {
-      await window.teleexport.python.call('export.cancel', { export_id: exportId });
+      await window.teleexport.python.call('export.cancel', { exportId });
       set({ status: 'cancelled' });
     } catch (err) {
       set({ error: { chatId: 0, errorMessage: (err as Error).message, recoverable: false } });

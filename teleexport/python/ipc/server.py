@@ -49,6 +49,7 @@ class IPCServer:
 
     async def _handle_message(self, raw: str):
         """Process an incoming JSON-RPC message."""
+        msg_id = None
         try:
             msg = json.loads(raw)
             msg_id = msg.get("id")
@@ -63,16 +64,13 @@ class IPCServer:
             # Call handler
             result = await handler(params, msg_id)
 
-            # If handler returns a result, send it back
-            if result is not None:
-                self._send_result(msg_id, result)
+            # Always send a result response so calls never hang
+            self._send_result(msg_id, result)
 
         except json.JSONDecodeError:
             self._send_error(None, -32700, "Parse error")
         except Exception as e:
-            self._send_error(
-                msg.get("id") if "msg" in dir() else None, -32603, str(e)
-            )
+            self._send_error(msg_id, -32603, str(e))
             traceback.print_exc(file=sys.stderr)
 
     def send_event(self, event_name: str, data: Any):

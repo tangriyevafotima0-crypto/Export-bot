@@ -18,6 +18,8 @@ DEFAULT_SETTINGS = {
     "batch_size": 100,
     "include_replies": True,
     "include_forwards": True,
+    "theme": "dark",
+    "language": "en",
 }
 
 

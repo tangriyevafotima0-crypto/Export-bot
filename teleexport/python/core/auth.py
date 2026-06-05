@@ -21,7 +21,17 @@ class AuthManager:
             if is_authorized:
                 me = await self.client.get_me()
                 phone_hint = me.phone[-4:] if me.phone else None
-                return {"has_session": True, "phone_hint": phone_hint}
+                return {
+                    "has_session": True,
+                    "phone_hint": phone_hint,
+                    "user": {
+                        "id": me.id,
+                        "first_name": me.first_name,
+                        "last_name": me.last_name,
+                        "username": me.username,
+                        "phone": me.phone,
+                    },
+                }
         except Exception:
             pass
 
@@ -61,7 +71,7 @@ class AuthManager:
         except Exception as e:
             error_msg = str(e)
             if "SessionPasswordNeeded" in error_msg or "Two" in error_msg:
-                return {"success": False, "needs_2fa": True}
+                return {"success": False, "requires_2fa": True}
             raise
 
     async def check_2fa(self) -> dict:

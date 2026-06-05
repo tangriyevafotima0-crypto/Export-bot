@@ -130,7 +130,7 @@ class TestAuthFlowTransitions:
 
         result = await auth_manager.sign_in("1234567890", "12345", "hash")
         assert result["success"] is False
-        assert result["needs_2fa"] is True
+        assert result["requires_2fa"] is True
 
     @pytest.mark.asyncio
     async def test_sign_in_propagates_other_errors(self, auth_manager, mock_client):

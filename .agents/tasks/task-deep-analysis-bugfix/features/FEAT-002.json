@@ -1,0 +1,33 @@
+{
+  "id": "FEAT-002",
+  "type": "fix",
+  "description": "Fix IPC data serialization mismatch between Python (snake_case) and TypeScript (camelCase) - the core integration bug that makes the app non-functional at runtime",
+  "status": "completed",
+  "steps": [
+    "1. Add a snake_case-to-camelCase utility in the Electron python-bridge layer (teleexport/electron/python-bridge.ts): Add a `toCamelCase(obj)` recursive helper that converts all snake_case keys in response objects to camelCase before resolving promises. Apply it in handleMessage() to `message.result` and `message.data` (for events).",
+    "2. Add a camelCase-to-snake_case utility for outgoing params: Add a `toSnakeCase(obj)` recursive helper. Apply it in the `call()` method to the params object before sending to Python. This way the frontend can use camelCase consistently and the bridge handles transformation.",
+    "3. Update teleexport/src/types/chat.types.ts: The Chat interface is already camelCase which is correct. Verify fields match what Python chat_scanner returns after case conversion: id, name, type, messageCount (from message_count), lastMessageDate (from last_message_date), unreadCount (from unread_count), isPinned (from is_pinned), isArchived (from is_archived). Update the Chat interface to include isPinned and isArchived fields and remove avatarUrl (not returned by backend) or make it optional.",
+    "4. Update teleexport/src/types/export.types.ts: ExportProgress already uses camelCase which is correct after bridge conversion. Verify ExportResult fields match after conversion: exportId, totalChats, totalMessages, totalMedia, outputPath.",
+    "5. Update teleexport/src/stores/auth.store.ts: After the bridge case conversion, results like `has_session` become `hasSession`, `phone_code_hash` becomes `phoneCodeHash`. Update the type casts accordingly: `result.hasSession` instead of `result.has_session`, `result.phoneCodeHash` instead of `result.phone_code_hash`. Apply similar fixes to sendCode (api_id->apiId, api_hash->apiHash in params will be auto-converted to snake by bridge).",
+    "6. Update teleexport/src/stores/settings.store.ts: After bridge conversion, settings response fields will be camelCase. The settings.get result will have `outputDir` instead of `output_dir`. Update the loadSettings handler. Also update the saveSettings to send camelCase (bridge converts to snake for backend).",
+    "7. Update teleexport/src/stores/export.store.ts: The startExport method manually constructs snake_case params (chat_ids, date_from, etc.). After the bridge auto-converts, these should be sent as camelCase and the bridge will convert them: chatIds, dateFrom, dateTo, mediaTypes, outputDir, includeReplies, includeForwards, maxFileSizeMb.",
+    "8. Update teleexport/src/stores/chats.store.ts: The loadChats call params are already simple (limit, offset) which are same in both cases. The getChatDetails sends `chat_id` which after bridge conversion from camelCase should be `chatId` -> converted to `chat_id` by bridge. Update accordingly.",
+    "9. Verify the Python backend config DEFAULT_SETTINGS includes all fields the frontend expects: Add 'theme' and 'language' to DEFAULT_SETTINGS in teleexport/python/core/config.py."
+  ],
+  "acceptance_criteria": [
+    "TypeScript compilation passes with 0 errors (npx tsc --noEmit and npx tsc --noEmit -p tsconfig.electron.json)",
+    "Vite build succeeds",
+    "All Python tests still pass (no Python changes should break them)",
+    "The python-bridge.ts correctly transforms snake_case responses to camelCase",
+    "The python-bridge.ts correctly transforms camelCase params to snake_case",
+    "Frontend stores use consistent camelCase without manual snake_case keys"
+  ],
+  "verification": [
+    "cd /projects/sandbox/Export-bot/teleexport && npx tsc --noEmit",
+    "cd /projects/sandbox/Export-bot/teleexport && npx tsc --noEmit -p tsconfig.electron.json",
+    "cd /projects/sandbox/Export-bot/teleexport && npx vite build",
+    "cd /projects/sandbox/Export-bot/teleexport && python -m pytest tests/python -v"
+  ],
+  "blocked_reason": null,
+  "findings": "All steps completed successfully. Bridge auto-converts snake_case<->camelCase bidirectionally. Note: Python's `requires_2fa` becomes `requires2fa` in JS (no underscore before digit). All TypeScript compilation (frontend + electron) passes, Vite build succeeds, all 68 Python tests pass."
+}

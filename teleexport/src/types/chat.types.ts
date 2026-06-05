@@ -16,8 +16,10 @@ export interface Chat {
   type: ChatType;
   messageCount: number;
   lastMessageDate: string | null;
-  avatarUrl: string | null;
+  avatarUrl?: string | null;
   unreadCount: number;
+  isPinned?: boolean;
+  isArchived?: boolean;
 }
 
 export interface ChatDetailed extends Chat {

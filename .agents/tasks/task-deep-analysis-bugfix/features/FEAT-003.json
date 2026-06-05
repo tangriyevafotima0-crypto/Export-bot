@@ -1,0 +1,25 @@
+{
+  "id": "FEAT-003",
+  "type": "fix",
+  "description": "Fix Electron main process issues and add missing error handling for robust IPC communication",
+  "status": "completed",
+  "steps": [
+    "1. Fix the require('electron') anti-pattern in teleexport/electron/ipc-handlers.ts: Replace `const { app } = require('electron')` with using the already-imported `app` from the top-level import (which is not currently imported). Add `app` to the import from 'electron' at the top of the file.",
+    "2. Fix python-bridge.ts process restart capability: Currently if the Python process crashes, there's no restart mechanism. Add a `restart()` method and optionally an auto-restart with exponential backoff (max 3 retries). Emit a 'restarting' event so the UI can show status.",
+    "3. Add error propagation from python-bridge to renderer: Currently if the Python process fails to start (e.g., python not found), the error is only logged. The renderer should be notified. In the 'error' event handler in ipc-handlers.ts, send an event to the renderer window.",
+    "4. Fix potential race condition in python-bridge.ts start(): If `call()` is invoked before the process is fully started, it may work since stdin is available immediately after spawn. But if the process exits immediately (bad python path), pending calls won't be rejected until close event. Add a 'ready' state check or queue calls until first stdout is received.",
+    "5. Add graceful shutdown timeout in python-bridge.ts stop(): Currently sends SIGTERM but doesn't wait or force-kill. Add a timeout (5 seconds) after SIGTERM, then SIGKILL if process hasn't exited."
+  ],
+  "acceptance_criteria": [
+    "TypeScript compilation passes with 0 errors for electron tsconfig",
+    "ipc-handlers.ts no longer uses require() for electron module",
+    "python-bridge has restart capability with retry limit",
+    "python-bridge properly handles process startup failures",
+    "python-bridge stop() has graceful shutdown with timeout"
+  ],
+  "verification": [
+    "cd /projects/sandbox/Export-bot/teleexport && npx tsc --noEmit -p tsconfig.electron.json"
+  ],
+  "blocked_reason": null,
+  "findings": "All 5 steps implemented. TypeScript compilation passes with 0 errors for both frontend and electron tsconfigs. No issues encountered."
+}
