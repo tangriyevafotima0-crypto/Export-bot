@@ -1,0 +1,30 @@
+{
+  "id": "FEAT-001",
+  "type": "feat",
+  "description": "Create deploy.sh and run_server.py for headless server deployment of TeleExport on Ubuntu AWS servers",
+  "status": "completed",
+  "steps": [
+    "Create teleexport/run_server.py - a standalone Python script that runs the TeleExport backend without Electron IPC. It should: (1) import and initialize the TeleExportClient with api_id/api_hash from ~/.teleexport/config/settings.json, (2) provide a simple CLI interface or daemon mode for running exports, (3) handle authentication flow interactively on first run (ask phone, code, 2FA if needed), (4) after auth, keep the client connected and allow exports via a simple command interface or just stay connected as a service ready for future use.",
+    "Create teleexport/deploy.sh - a comprehensive bash deployment script that runs with sudo on Ubuntu. The script must: (1) Show a banner/header for TeleExport, (2) Check system requirements (Ubuntu version, RAM >= 1GB, disk space >= 1GB free), (3) Install system dependencies (software-properties-common, build-essential), (4) Install Python 3.11+ via deadsnakes PPA if not already available, (5) Install pip for python3.11, (6) Install Python dependencies from teleexport/python/pyproject.toml using pip3.11, (7) Prompt user interactively for api_id (integer) and api_hash (string) with clear instructions pointing to https://my.telegram.org, (8) Write config to ~/.teleexport/config/settings.json with the provided credentials, (9) Create a systemd service file /etc/systemd/system/teleexport.service that runs run_server.py as the current user, (10) Enable and start the service, (11) Show final status with systemctl status, (12) Print clear instructions about what to enter on my.telegram.org (App title, Short name, Platform selection, etc.)",
+    "The deploy.sh must handle errors gracefully: use set -e with trap for cleanup, colored output (green for success, red for errors, yellow for warnings, cyan for info), validate all user inputs (api_id must be numeric, api_hash must be hex string of correct length), and not conflict with other services on the server.",
+    "The systemd service should: run as the user who ran deploy.sh (not root), restart on failure with 10s delay, set working directory to the teleexport folder, log to journalctl, and have a description of 'TeleExport Telegram Export Service'."
+  ],
+  "acceptance_criteria": [
+    "deploy.sh exists at teleexport/deploy.sh and is syntactically valid bash (passes bash -n)",
+    "run_server.py exists at teleexport/run_server.py and is syntactically valid Python (passes python3 -c 'import ast; ast.parse(open(\"run_server.py\").read())')",
+    "deploy.sh includes all required sections: system check, Python install, pip deps, credential prompting, config write, systemd setup, status display",
+    "deploy.sh has proper error handling with colored output",
+    "run_server.py can run the Python backend standalone without requiring Electron or Node.js",
+    "deploy.sh prompts for api_id and api_hash with validation",
+    "deploy.sh creates systemd service that runs as non-root user",
+    "deploy.sh ends with clear instructions about my.telegram.org"
+  ],
+  "verification": [
+    "Run: bash -n teleexport/deploy.sh (must exit 0)",
+    "Run: cd teleexport && python3 -c \"import ast; ast.parse(open('run_server.py').read())\" (must exit 0)",
+    "Run: grep -q 'api_id' teleexport/deploy.sh && grep -q 'api_hash' teleexport/deploy.sh && grep -q 'systemd' teleexport/deploy.sh && grep -q 'systemctl' teleexport/deploy.sh (confirm key sections exist)",
+    "Run: grep -q 'my.telegram.org' teleexport/deploy.sh (confirm instructions are included)"
+  ],
+  "blocked_reason": null,
+  "findings": "Both files created and verified. deploy.sh passes bash -n syntax check, run_server.py passes AST parse. deploy.sh is executable. All key sections present (api_id, api_hash, systemd, systemctl, my.telegram.org). Review fixes applied: chmod 600/700 for credentials and sessions, venv isolation at ~/.teleexport/venv/, Unix socket JSON-RPC server for export triggering, improved auth error handling with actionable messages, tightened api_hash to exactly 32 hex chars, added set -o pipefail and LINENO error trap."
+}

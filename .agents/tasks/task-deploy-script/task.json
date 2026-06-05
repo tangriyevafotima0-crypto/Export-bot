@@ -1,0 +1,14 @@
+{
+  "task_id": "task-deploy-script",
+  "task_description": "Create deploy.sh and run_server.py for automated headless deployment of TeleExport on Ubuntu AWS servers. The deploy script installs all dependencies, prompts for Telegram API credentials, configures the app, sets up systemd service, and provides clear instructions.",
+  "status": "completed",
+  "feature_order": ["FEAT-001"],
+  "blocked_reason": null,
+  "verification": {
+    "build": "pass",
+    "tests": "pass",
+    "test_quality": "pass",
+    "docker_build": "skipped",
+    "summary": "bash -n deploy.sh passes, python AST parse of run_server.py passes, all key sections verified (api_id, api_hash, systemd, venv, chmod, my.telegram.org instructions)"
+  }
+}
