@@ -86,7 +86,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         phone,
         code,
         phoneCodeHash,
-      }) as { success: boolean; user?: User; requires_2fa?: boolean; requires2fa?: boolean };
+      }) as { success: boolean; user?: User; requires2fa?: boolean };
 
       if (result.requires2fa) {
         set({ authStep: 'password' });
