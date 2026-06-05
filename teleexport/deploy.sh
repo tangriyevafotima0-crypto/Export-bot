@@ -3,7 +3,7 @@
 # TeleExport Deployment Script
 # Automated headless deployment for Ubuntu AWS servers
 #
-set -e
+set -eo pipefail
 
 # ─── Colors ───────────────────────────────────────────────────────────────────
 RED='\033[0;31m'
@@ -20,13 +20,15 @@ error()   { echo -e "${RED}[ERROR]${NC} $1"; }
 
 # ─── Error trap ───────────────────────────────────────────────────────────────
 cleanup() {
-    if [ $? -ne 0 ]; then
+    local exit_code=$?
+    if [ $exit_code -ne 0 ]; then
         echo ""
-        error "Deployment failed. Check the output above for details."
+        error "Deployment failed (exit code ${exit_code}). Check the output above for details."
         error "You can re-run this script after fixing the issue."
     fi
 }
 trap cleanup EXIT
+trap 'error "Failed at line $LINENO (command: $BASH_COMMAND)"' ERR
 
 # ─── Banner ───────────────────────────────────────────────────────────────────
 echo ""
@@ -111,11 +113,20 @@ if ! python3.11 -m pip --version &>/dev/null; then
 fi
 success "pip ready: $(python3.11 -m pip --version 2>&1 | head -1)"
 
-# ─── Install Python dependencies ──────────────────────────────────────────────
+# ─── Create Python virtual environment ─────────────────────────────────────────
 echo ""
-info "Installing Python dependencies..."
-python3.11 -m pip install --upgrade pip > /dev/null 2>&1
-python3.11 -m pip install \
+info "Creating Python virtual environment..."
+VENV_DIR="${REAL_HOME}/.teleexport/venv"
+if [ -d "$VENV_DIR" ]; then
+    info "Virtual environment already exists, upgrading..."
+fi
+sudo -u "$REAL_USER" python3.11 -m venv "$VENV_DIR"
+success "Virtual environment created at ${VENV_DIR}"
+
+# ─── Install Python dependencies ──────────────────────────────────────────────
+info "Installing Python dependencies in venv..."
+sudo -u "$REAL_USER" "${VENV_DIR}/bin/pip" install --upgrade pip > /dev/null 2>&1
+sudo -u "$REAL_USER" "${VENV_DIR}/bin/pip" install \
     "telethon>=1.30" \
     "jinja2>=3.1" \
     "pillow>=11" \
@@ -126,7 +137,7 @@ python3.11 -m pip install \
     "python-dateutil>=2.9" \
     "colorama>=0.4.6" \
     > /dev/null 2>&1
-success "All Python dependencies installed."
+success "All Python dependencies installed in venv."
 
 # ─── Prompt for Telegram API credentials ──────────────────────────────────────
 echo ""
@@ -151,12 +162,12 @@ done
 
 # Prompt for api_hash
 while true; do
-    read -rp "$(echo -e "${CYAN}Enter your api_hash (hex string): ${NC}")" API_HASH
-    if [[ "$API_HASH" =~ ^[a-fA-F0-9]{24,64}$ ]]; then
+    read -rp "$(echo -e "${CYAN}Enter your api_hash (32 hex characters): ${NC}")" API_HASH
+    if [[ "$API_HASH" =~ ^[a-fA-F0-9]{32}$ ]]; then
         success "api_hash accepted."
         break
     else
-        error "api_hash must be a hex string (24-64 characters, a-f and 0-9 only). Please try again."
+        error "api_hash must be exactly 32 hex characters (a-f and 0-9 only). Please try again."
     fi
 done
 
@@ -185,16 +196,18 @@ cat > "${CONFIG_DIR}/settings.json" <<EOF
 }
 EOF
 
-# Fix ownership
+# Fix ownership and permissions
 chown -R "${REAL_USER}:${REAL_USER}" "${REAL_HOME}/.teleexport"
 chown -R "${REAL_USER}:${REAL_USER}" "${REAL_HOME}/TeleExport"
+chmod 600 "${CONFIG_DIR}/settings.json"
+chmod 700 "${SESSION_DIR}"
 success "Configuration saved to ${CONFIG_DIR}/settings.json"
 
 # ─── Create systemd service ──────────────────────────────────────────────────
 echo ""
 info "Setting up systemd service..."
 
-PYTHON_PATH=$(which python3.11)
+VENV_PYTHON="${VENV_DIR}/bin/python3"
 RUN_SCRIPT="${SCRIPT_DIR}/run_server.py"
 
 cat > /etc/systemd/system/teleexport.service <<EOF
@@ -208,7 +221,7 @@ Type=simple
 User=${REAL_USER}
 Group=${REAL_USER}
 WorkingDirectory=${SCRIPT_DIR}
-ExecStart=${PYTHON_PATH} ${RUN_SCRIPT}
+ExecStart=${VENV_PYTHON} ${RUN_SCRIPT}
 Restart=on-failure
 RestartSec=10
 StandardOutput=journal
@@ -233,7 +246,7 @@ warn "IMPORTANT: Before starting the service, you must authenticate first!"
 echo ""
 echo -e "${CYAN}Run the following command as your user to complete authentication:${NC}"
 echo ""
-echo -e "  ${GREEN}sudo -u ${REAL_USER} ${PYTHON_PATH} ${RUN_SCRIPT}${NC}"
+echo -e "  ${GREEN}sudo -u ${REAL_USER} ${VENV_PYTHON} ${RUN_SCRIPT}${NC}"
 echo ""
 echo -e "${CYAN}After authentication completes successfully (you'll see 'Authenticated successfully!'),${NC}"
 echo -e "${CYAN}press Ctrl+C and then start the service:${NC}"
@@ -275,7 +288,10 @@ echo -e "     ${CYAN}Platform:${NC}        Desktop"
 echo -e "     ${CYAN}Description:${NC}     Telegram chat export tool"
 echo ""
 echo -e "  5. Click ${GREEN}'Create application'${NC}"
-echo -e "  6. Copy the ${GREEN}api_id${NC} (number) and ${GREEN}api_hash${NC} (hex string)"
+echo -e "  6. Copy the ${GREEN}api_id${NC} (number) and ${GREEN}api_hash${NC} (32 hex chars)"
+echo ""
+echo -e "${YELLOW}NOTE: my.telegram.org rate-limits login attempts. If you enter the wrong${NC}"
+echo -e "${YELLOW}SMS code too many times, access may be blocked for up to 24 hours.${NC}"
 echo ""
 echo -e "${GREEN}Done! Your TeleExport server is ready.${NC}"
 echo ""

@@ -26,5 +26,5 @@
     "Run: grep -q 'my.telegram.org' teleexport/deploy.sh (confirm instructions are included)"
   ],
   "blocked_reason": null,
-  "findings": "Both files created and verified. deploy.sh passes bash -n syntax check, run_server.py passes AST parse. deploy.sh is executable. All key sections present (api_id, api_hash, systemd, systemctl, my.telegram.org)."
+  "findings": "Both files created and verified. deploy.sh passes bash -n syntax check, run_server.py passes AST parse. deploy.sh is executable. All key sections present (api_id, api_hash, systemd, systemctl, my.telegram.org). Review fixes applied: chmod 600/700 for credentials and sessions, venv isolation at ~/.teleexport/venv/, Unix socket JSON-RPC server for export triggering, improved auth error handling with actionable messages, tightened api_hash to exactly 32 hex chars, added set -o pipefail and LINENO error trap."
 }
