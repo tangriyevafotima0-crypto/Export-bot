@@ -2,7 +2,7 @@
   "id": "FEAT-004",
   "type": "feat",
   "description": "Tests and final integration: Add Python unit tests for the export engine, HTML formatter, and IPC server. Add frontend component tests. Ensure the full project builds cleanly.",
-  "status": "pending",
+  "status": "in_progress",
   "steps": [
     "Create tests/python/conftest.py with shared pytest fixtures (mock TelegramClient, mock messages, tmp export dirs)",
     "Create tests/python/test_ipc_server.py: Test IPCServer message parsing, handler dispatch, error responses, event sending",
