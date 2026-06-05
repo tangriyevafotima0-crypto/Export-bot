@@ -1,0 +1,18 @@
+{
+  "project_type": "Electron + React + Python desktop app (TeleExport - Telegram chat exporter)",
+  "language": "TypeScript (frontend/electron) + Python (backend)",
+  "build_system": "npm (root), Vite (frontend bundler), electron-builder (packaging), uv/pip (Python)",
+  "test_framework": "Vitest (frontend), pytest (Python backend)",
+  "build_command": "cd teleexport && npm run build",
+  "test_command": "cd teleexport && npm run test && cd python && python -m pytest tests/",
+  "verification_instructions": "1. npm install in teleexport/ root. 2. Verify TypeScript compiles without errors (npx tsc --noEmit). 3. Verify Vite builds (npm run build). 4. Verify Python imports work (python -c 'import python'). 5. Run pytest for Python tests.",
+  "snapshot_or_generated_files": null,
+  "setup_instructions": "1. pyenv local 3.11.15 for Python. 2. npm install in teleexport/ for Node deps. 3. uv pip install -e ./python or pip install deps for Python.",
+  "environment_constraints": "OPEN_INTERNET mode - full access to npm and pip registries. Python 3.11 available via pyenv. Node 22 available.",
+  "contribution_requirements": "Follow the technical plan structure from teleexport_technical_plan.md. Use JSON-RPC over stdin/stdout for IPC. Use Tailwind CSS 4 for styling. Use Zustand for state management.",
+  "key_patterns": "JSON-RPC IPC protocol between Electron main process and Python child_process. React 19 + TypeScript frontend with Zustand stores. Python async with Telethon for Telegram MTProto. Jinja2 templates for HTML export formatting.",
+  "relevant_files": [
+    "teleexport_technical_plan.md"
+  ],
+  "directory_structure": "teleexport/ - root project dir with package.json, electron-builder.yml, vite.config.ts. teleexport/src/ - React frontend. teleexport/electron/ - Electron main process. teleexport/python/ - Python backend with core/, export/, formatters/, ipc/, utils/ subdirs. teleexport/tests/ - Python and frontend tests."
+}

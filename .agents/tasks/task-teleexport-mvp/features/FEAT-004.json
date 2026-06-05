@@ -1,0 +1,32 @@
+{
+  "id": "FEAT-004",
+  "type": "feat",
+  "description": "Tests and final integration: Add Python unit tests for the export engine, HTML formatter, and IPC server. Add frontend component tests. Ensure the full project builds cleanly.",
+  "status": "completed",
+  "steps": [
+    "Create tests/python/conftest.py with shared pytest fixtures (mock TelegramClient, mock messages, tmp export dirs)",
+    "Create tests/python/test_ipc_server.py: Test IPCServer message parsing, handler dispatch, error responses, event sending",
+    "Create tests/python/test_export_engine.py: Test ExportConfig creation, _should_download_media logic, formatter selection",
+    "Create tests/python/test_html_formatter.py: Test HTML generation with mock messages, date grouping, participant collection",
+    "Create tests/python/test_message_fetcher.py: Test batch iteration logic, date filtering",
+    "Create tests/python/test_media_downloader.py: Test filename generation, dedup logic, size limit checking",
+    "Create tests/python/test_auth.py: Test auth flow state transitions",
+    "Ensure pytest.ini or pyproject.toml has proper pytest configuration (asyncio mode, test paths)",
+    "Run all Python tests and fix any failures",
+    "Verify the full Vite build completes successfully",
+    "Verify TypeScript compilation has no errors"
+  ],
+  "acceptance_criteria": [
+    "All Python tests pass (pytest returns exit code 0)",
+    "TypeScript compiles without errors",
+    "Vite build produces dist/ directory with index.html and assets",
+    "Tests actually test real logic (not just trivial assertions)"
+  ],
+  "verification": [
+    "cd /projects/sandbox/Export-bot/teleexport && PYENV_VERSION=3.11.15 python -m pytest tests/python/ -v",
+    "cd /projects/sandbox/Export-bot/teleexport && npx tsc --noEmit",
+    "cd /projects/sandbox/Export-bot/teleexport && npx vite build"
+  ],
+  "blocked_reason": null,
+  "findings": "Resolved import issue: tests/python/ directory with __init__.py was shadowing the python package. Removed __init__.py and added root conftest.py for sys.path setup instead. pytest-asyncio 1.4.0 requires asyncio_mode=auto in pytest.ini (at teleexport/ level) for auto-decorated async tests. All 68 tests pass, TypeScript and Vite builds clean."
+}

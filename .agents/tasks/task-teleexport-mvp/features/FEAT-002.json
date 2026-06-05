@@ -1,0 +1,44 @@
+{
+  "id": "FEAT-002",
+  "type": "feat",
+  "description": "Python Backend: Implement the complete Python backend with IPC server, auth module, export engine, message fetcher, media downloader, HTML/JSON formatters, and the Jinja2 HTML template.",
+  "status": "completed",
+  "steps": [
+    "Create python/core/config.py with constants: SESSION_DIR, CONFIG_DIR, EXPORTS_DIR paths (all under ~/.teleexport/), setup_dirs() function to create them",
+    "Create python/core/client.py with TeleExportClient class wrapping Telethon: init(api_id, api_hash), connect(), send_code(), sign_in(), sign_in_with_password(), get_me(), disconnect() methods as specified in the plan",
+    "Create python/core/auth.py with AuthManager class that handles the full auth flow: check_session, send_code, sign_in, check_2fa, sign_in_2fa, logout",
+    "Create python/core/session_manager.py for managing session files (list sessions, delete session, get session info)",
+    "Create python/ipc/protocol.py defining IPCMessage dataclass and serialization",
+    "Create python/ipc/server.py with IPCServer class: register() handlers, start() reading stdin line-by-line, send_event() for streaming, _handle_message() for JSON-RPC dispatch, _send_result(), _send_error()",
+    "Create python/ipc/handlers.py with register_handlers() function that registers all RPC methods: auth.check_session, auth.send_code, auth.sign_in, auth.check_2fa, auth.sign_in_2fa, auth.logout, chats.list, chats.get_details, export.start, export.cancel, export.get_status, settings.get, settings.set",
+    "Create python/export/progress.py with ExportProgress class for tracking and emitting progress events",
+    "Create python/export/message_fetcher.py with MessageFetcher class: iter_batches() using takeout session with fallback, count_total(), rate limiting as per plan",
+    "Create python/export/media_downloader.py with MediaDownloader class: download() with dedup via file_id cache, _generate_filename() with date prefix, size limit checking",
+    "Create python/export/chat_scanner.py with ChatScanner class: scan_all() using iter_dialogs, filter by type, return structured chat list",
+    "Create python/export/engine.py with ExportEngine class and ExportConfig dataclass: run(export_id) orchestrating full export, _export_chat() for single chat, _should_download_media(), _get_formatter()",
+    "Create python/formatters/html_formatter.py with HTMLFormatter class using Jinja2: format(), _group_by_date(), _collect_participants(), custom filters",
+    "Create python/formatters/json_formatter.py with JSONFormatter class: streaming JSON output using orjson",
+    "Create python/formatters/csv_formatter.py with CSVFormatter class for CSV export",
+    "Create python/formatters/templates/chat.html - the full HTML template with dark theme CSS from the plan (messenger-style bubbles, date separators, media rendering, responsive design, print styles)",
+    "Create python/formatters/templates/styles.css with the full CSS extracted (can be inlined by the formatter)",
+    "Create python/utils/sanitizer.py for HTML text sanitization",
+    "Create python/utils/file_utils.py with safe filename generation, directory creation helpers",
+    "Create python/utils/logger.py with configured logging (file + stderr)",
+    "Create python/utils/rate_limiter.py with RateLimiter class for Telegram API rate limits",
+    "Create python/main.py entry point: App class with server, client, run(), shutdown() as specified in the plan"
+  ],
+  "acceptance_criteria": [
+    "All Python modules import successfully without errors: python -c 'from python.main import App'",
+    "The IPC server can be instantiated and handlers registered",
+    "The ExportEngine, MessageFetcher, MediaDownloader classes are properly structured with correct method signatures",
+    "The HTML template renders valid HTML when given test data",
+    "pytest discovers and can run test files in tests/python/"
+  ],
+  "verification": [
+    "cd /projects/sandbox/Export-bot/teleexport && PYENV_VERSION=3.11.15 python -c 'import sys; sys.path.insert(0, \".\"); from python.ipc.server import IPCServer; s = IPCServer(); print(\"IPCServer OK\")'",
+    "cd /projects/sandbox/Export-bot/teleexport && PYENV_VERSION=3.11.15 python -c 'import sys; sys.path.insert(0, \".\"); from python.core.client import TeleExportClient; print(\"Client OK\")'",
+    "cd /projects/sandbox/Export-bot/teleexport && PYENV_VERSION=3.11.15 python -c 'import sys; sys.path.insert(0, \".\"); from python.export.engine import ExportEngine, ExportConfig; print(\"Engine OK\")'"
+  ],
+  "blocked_reason": null,
+  "findings": "All 22 Python modules implemented and verified. All imports work correctly. HTML template rendering tested with mock data. pytest passes (no tests defined yet in tests/python/). Python 3.11.15 via pyenv works correctly."
+}

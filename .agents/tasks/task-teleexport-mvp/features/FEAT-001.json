@@ -1,0 +1,36 @@
+{
+  "id": "FEAT-001",
+  "type": "chore",
+  "description": "Project scaffolding: Create the full teleexport/ project structure with all config files, dependency manifests, and directory hierarchy as specified in the technical plan.",
+  "status": "completed",
+  "steps": [
+    "Create teleexport/ directory at /projects/sandbox/Export-bot/teleexport/",
+    "Create package.json with all frontend dependencies: electron ^33, react ^19, typescript ^5.6, tailwindcss ^4, zustand ^5, react-router-dom ^7, lucide-react, recharts, @tanstack/react-query ^5, vite ^6, electron-builder ^25, vitest, @testing-library/react. Include scripts: dev, build, preview, test, electron:dev",
+    "Create tsconfig.json with strict mode, JSX react-jsx, paths for @/ alias to src/",
+    "Create vite.config.ts with React plugin, path alias @/ -> src/, and electron build target",
+    "Create tailwind.config.ts for Tailwind CSS 4",
+    "Create electron-builder.yml as specified in the plan (appId: com.teleexport.app, productName: TeleExport, with mac/win/linux targets, extraResources for python/)",
+    "Create python/pyproject.toml with project metadata and all dependencies: telethon>=2.0, jinja2>=3.1, pillow>=11, python-magic>=0.4.27, cryptg>=0.4, orjson>=3.10, aiofiles>=24, tqdm>=4.66, emoji>=2.14, python-dateutil>=2.9, colorama>=0.4.6, plus dev deps: pytest, pytest-asyncio",
+    "Create full directory structure with __init__.py files: python/core/, python/export/, python/formatters/, python/formatters/templates/, python/ipc/, python/utils/",
+    "Create src/ directory structure: src/components/layout/, src/components/auth/, src/components/dashboard/, src/components/export/, src/components/shared/, src/stores/, src/hooks/, src/types/",
+    "Create electron/ directory",
+    "Create tests/python/ and tests/frontend/ directories",
+    "Create index.html (Vite entry point) at teleexport/index.html with root div and script src to /src/main.tsx",
+    "Run npm install to install all Node dependencies",
+    "Set up Python 3.11 environment and install Python dependencies using uv"
+  ],
+  "acceptance_criteria": [
+    "teleexport/package.json exists with all specified dependencies",
+    "npm install succeeds without errors",
+    "Python dependencies install successfully",
+    "All directories from the technical plan exist",
+    "tsconfig.json, vite.config.ts, and tailwind config are valid"
+  ],
+  "verification": [
+    "cd /projects/sandbox/Export-bot/teleexport && cat package.json | python3 -c 'import json,sys; d=json.load(sys.stdin); assert \"react\" in d.get(\"dependencies\",{})'",
+    "cd /projects/sandbox/Export-bot/teleexport && ls node_modules/.package-lock.json 2>/dev/null || ls node_modules/ | head -5",
+    "cd /projects/sandbox/Export-bot/teleexport && npx tsc --version"
+  ],
+  "blocked_reason": null,
+  "findings": "Telethon 2.0 is not yet available on PyPI (still in development). Used telethon>=1.30 instead. All other deps installed fine. Tailwind CSS v4 works with @tailwindcss/vite plugin and CSS-based config (@import 'tailwindcss' in index.css) rather than JS config file. The tailwind.config.ts is kept as a placeholder but the actual config is handled via CSS. Vite build and tsc --noEmit both pass cleanly."
+}
