@@ -20,7 +20,7 @@ class App:
     def __init__(self):
         self.server = IPCServer()
         self.client = TeleExportClient()
-        self.current_export = None
+        self.exports = {}
 
     async def run(self):
         """Start the application."""
@@ -41,8 +41,8 @@ class App:
     def shutdown(self):
         """Gracefully shutdown the application."""
         self.server._running = False
-        if self.current_export:
-            self.current_export.cancel()
+        for engine in self.exports.values():
+            engine.cancel()
 
 
 if __name__ == "__main__":

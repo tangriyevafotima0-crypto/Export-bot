@@ -9,7 +9,6 @@ const formats: { id: ExportFormat; label: string; description: string }[] = [
   { id: 'html', label: 'HTML', description: 'Beautiful, browsable export with media' },
   { id: 'json', label: 'JSON', description: 'Structured data for developers' },
   { id: 'csv', label: 'CSV', description: 'Spreadsheet-compatible format' },
-  { id: 'pdf', label: 'PDF', description: 'Printable document format' },
 ];
 
 export function FormatSelector({ value, onChange }: FormatSelectorProps) {

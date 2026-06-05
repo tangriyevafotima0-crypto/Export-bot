@@ -20,7 +20,7 @@ interface AuthState {
   loading: boolean;
 
   checkSession: () => Promise<void>;
-  sendCode: (phone: string) => Promise<void>;
+  sendCode: (phone: string, apiId?: string, apiHash?: string) => Promise<void>;
   verifyCode: (code: string) => Promise<void>;
   verifyPassword: (password: string) => Promise<void>;
   logout: () => Promise<void>;
@@ -56,10 +56,18 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     }
   },
 
-  sendCode: async (phone: string) => {
+  sendCode: async (phone: string, apiId?: string, apiHash?: string) => {
     set({ loading: true, error: null });
     try {
-      const result = await window.teleexport.python.call('auth.send_code', { phone }) as {
+      if (!apiId || !apiHash) {
+        set({ error: 'API ID and API Hash are required' });
+        return;
+      }
+      const result = await window.teleexport.python.call('auth.send_code', {
+        phone,
+        api_id: parseInt(apiId, 10),
+        api_hash: apiHash,
+      }) as {
         phone_code_hash: string;
       };
       set({ phone, phoneCodeHash: result.phone_code_hash, authStep: 'code' });

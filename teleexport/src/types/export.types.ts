@@ -1,6 +1,6 @@
 import type { MediaType } from './chat.types';
 
-export type ExportFormat = 'html' | 'json' | 'csv' | 'pdf';
+export type ExportFormat = 'html' | 'json' | 'csv';
 
 export type ExportStatus = 'idle' | 'running' | 'completed' | 'cancelled' | 'error';
 

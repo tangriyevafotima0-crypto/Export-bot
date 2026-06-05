@@ -1,4 +1,5 @@
 """Register all RPC method handlers for the IPC server."""
+import json
 import uuid
 from datetime import datetime
 from pathlib import Path
@@ -6,9 +7,34 @@ from pathlib import Path
 from .server import IPCServer
 from ..core.auth import AuthManager
 from ..core.session_manager import SessionManager
-from ..core.config import DEFAULT_SETTINGS, EXPORTS_DIR
+from ..core.config import DEFAULT_SETTINGS, EXPORTS_DIR, CONFIG_DIR
 from ..export.engine import ExportEngine, ExportConfig
 from ..export.chat_scanner import ChatScanner
+
+SETTINGS_FILE = CONFIG_DIR / "settings.json"
+
+
+def _load_settings() -> dict:
+    """Load settings from disk, falling back to defaults."""
+    settings = dict(DEFAULT_SETTINGS)
+    try:
+        if SETTINGS_FILE.exists():
+            with open(SETTINGS_FILE, "r") as f:
+                saved = json.load(f)
+            settings.update(saved)
+    except (json.JSONDecodeError, OSError):
+        pass
+    return settings
+
+
+def _save_settings(settings: dict) -> None:
+    """Persist settings to disk."""
+    try:
+        CONFIG_DIR.mkdir(parents=True, exist_ok=True)
+        with open(SETTINGS_FILE, "w") as f:
+            json.dump(settings, f, indent=2, default=str)
+    except OSError:
+        pass
 
 
 def register_handlers(server: IPCServer, app):
@@ -16,7 +42,11 @@ def register_handlers(server: IPCServer, app):
 
     auth_manager = AuthManager(app.client)
     session_manager = SessionManager()
-    _settings = dict(DEFAULT_SETTINGS)
+    _settings = _load_settings()
+
+    # Dict of active exports keyed by export_id
+    if not hasattr(app, "exports"):
+        app.exports = {}
 
     # ============ AUTH ============
 
@@ -116,7 +146,7 @@ def register_handlers(server: IPCServer, app):
             server.send_event(event_name, data)
 
         engine = ExportEngine(app.client, config, progress_callback)
-        app.current_export = engine
+        app.exports[export_id] = engine
 
         # Run export in background
         import asyncio
@@ -144,21 +174,25 @@ def register_handlers(server: IPCServer, app):
                     },
                 )
             finally:
-                app.current_export = None
+                app.exports.pop(export_id, None)
 
         asyncio.create_task(run_export())
         return {"export_id": export_id}
 
     async def export_cancel(params, msg_id):
         export_id = params.get("export_id")
-        if app.current_export:
-            app.current_export.cancel()
+        engine = app.exports.get(export_id)
+        if engine:
+            engine.cancel()
             return {"success": True}
         return {"success": False}
 
     async def export_get_status(params, msg_id):
-        if app.current_export:
-            return {"status": "running"}
+        export_id = params.get("export_id")
+        if export_id and export_id in app.exports:
+            return {"status": "running", "export_id": export_id}
+        if app.exports:
+            return {"status": "running", "active_exports": list(app.exports.keys())}
         return {"status": "idle"}
 
     # ============ SETTINGS ============
@@ -169,6 +203,7 @@ def register_handlers(server: IPCServer, app):
     async def settings_set(params, msg_id):
         new_settings = params.get("settings", {})
         _settings.update(new_settings)
+        _save_settings(_settings)
         return {"success": True}
 
     # Register all handlers
