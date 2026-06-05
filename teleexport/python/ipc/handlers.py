@@ -27,14 +27,15 @@ def _load_settings() -> dict:
     return settings
 
 
-def _save_settings(settings: dict) -> None:
-    """Persist settings to disk."""
+def _save_settings(settings: dict) -> tuple[bool, str | None]:
+    """Persist settings to disk. Returns (success, error_message)."""
     try:
         CONFIG_DIR.mkdir(parents=True, exist_ok=True)
         with open(SETTINGS_FILE, "w") as f:
             json.dump(settings, f, indent=2, default=str)
-    except OSError:
-        pass
+        return (True, None)
+    except OSError as e:
+        return (False, str(e))
 
 
 def register_handlers(server: IPCServer, app):
@@ -51,6 +52,13 @@ def register_handlers(server: IPCServer, app):
     # ============ AUTH ============
 
     async def auth_check_session(params, msg_id):
+        # On cold start, client is None. If we have persisted api credentials,
+        # initialize the client so check_session can verify the session file.
+        if app.client.client is None:
+            api_id = _settings.get("api_id")
+            api_hash = _settings.get("api_hash")
+            if api_id and api_hash:
+                await app.client.init(int(api_id), str(api_hash))
         return await auth_manager.check_session()
 
     async def auth_send_code(params, msg_id):
@@ -58,6 +66,10 @@ def register_handlers(server: IPCServer, app):
         api_id = params["api_id"]
         api_hash = params["api_hash"]
         result = await auth_manager.send_code(phone, api_id, api_hash)
+        # Persist api_id and api_hash for session resume on future cold starts
+        _settings["api_id"] = api_id
+        _settings["api_hash"] = api_hash
+        _save_settings(_settings)
         server.send_event("auth.code_sent", {"phone": phone})
         return result
 
@@ -203,7 +215,9 @@ def register_handlers(server: IPCServer, app):
     async def settings_set(params, msg_id):
         new_settings = params.get("settings", {})
         _settings.update(new_settings)
-        _save_settings(_settings)
+        ok, err = _save_settings(_settings)
+        if not ok:
+            return {"success": False, "error": err}
         return {"success": True}
 
     # Register all handlers
