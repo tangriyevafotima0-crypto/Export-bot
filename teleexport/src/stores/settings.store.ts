@@ -26,10 +26,10 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
   loadSettings: async () => {
     try {
       const result = await window.teleexport.python.call('settings.get') as {
-        settings: { output_dir: string; theme: Theme; language: string };
+        settings: { outputDir: string; theme: Theme; language: string };
       };
       set({
-        outputDir: result.settings.output_dir,
+        outputDir: result.settings.outputDir,
         theme: result.settings.theme,
         language: result.settings.language,
       });
@@ -42,7 +42,7 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
     const { outputDir, theme, language } = get();
     try {
       await window.teleexport.python.call('settings.set', {
-        settings: { output_dir: outputDir, theme, language },
+        settings: { outputDir, theme, language },
       });
     } catch {
       // Silent fail

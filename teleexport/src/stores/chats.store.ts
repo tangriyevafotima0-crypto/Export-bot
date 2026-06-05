@@ -58,7 +58,7 @@ export const useChatsStore = create<ChatsState>((set, get) => ({
     set({ loading: true, error: null });
     try {
       const result = await window.teleexport.python.call('chats.get_details', {
-        chat_id: chatId,
+        chatId,
       }) as { chat: ChatDetailed };
       set({ selectedChat: result.chat });
     } catch (err) {

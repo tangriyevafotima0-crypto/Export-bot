@@ -2,6 +2,42 @@ import { ChildProcess, spawn } from 'child_process';
 import { EventEmitter } from 'events';
 import path from 'path';
 
+/**
+ * Recursively converts all snake_case keys in an object to camelCase.
+ */
+function toCamelCase(obj: unknown): unknown {
+  if (Array.isArray(obj)) {
+    return obj.map(toCamelCase);
+  }
+  if (obj !== null && typeof obj === 'object') {
+    const result: Record<string, unknown> = {};
+    for (const [key, value] of Object.entries(obj as Record<string, unknown>)) {
+      const camelKey = key.replace(/_([a-z])/g, (_, c: string) => c.toUpperCase());
+      result[camelKey] = toCamelCase(value);
+    }
+    return result;
+  }
+  return obj;
+}
+
+/**
+ * Recursively converts all camelCase keys in an object to snake_case.
+ */
+function toSnakeCase(obj: unknown): unknown {
+  if (Array.isArray(obj)) {
+    return obj.map(toSnakeCase);
+  }
+  if (obj !== null && typeof obj === 'object') {
+    const result: Record<string, unknown> = {};
+    for (const [key, value] of Object.entries(obj as Record<string, unknown>)) {
+      const snakeKey = key.replace(/[A-Z]/g, (c) => `_${c.toLowerCase()}`);
+      result[snakeKey] = toSnakeCase(value);
+    }
+    return result;
+  }
+  return obj;
+}
+
 interface PendingCall {
   resolve: (value: unknown) => void;
   reject: (error: Error) => void;
@@ -58,7 +94,8 @@ export class PythonBridge extends EventEmitter {
     }
 
     const id = String(++this.callId);
-    const message = JSON.stringify({ id, method, params }) + '\n';
+    const snakeParams = toSnakeCase(params) as Record<string, unknown>;
+    const message = JSON.stringify({ id, method, params: snakeParams }) + '\n';
 
     return new Promise((resolve, reject) => {
       const timer = setTimeout(() => {
@@ -96,7 +133,7 @@ export class PythonBridge extends EventEmitter {
 
   private handleMessage(message: { id: string | null; result?: unknown; error?: { code: number; message: string }; event?: string; data?: unknown }): void {
     if (message.id === null && message.event) {
-      this.emit('event', message.event, message.data);
+      this.emit('event', message.event, toCamelCase(message.data));
       return;
     }
 
@@ -110,7 +147,7 @@ export class PythonBridge extends EventEmitter {
       if (message.error) {
         pending.reject(new Error(message.error.message));
       } else {
-        pending.resolve(message.result);
+        pending.resolve(toCamelCase(message.result));
       }
     }
   }

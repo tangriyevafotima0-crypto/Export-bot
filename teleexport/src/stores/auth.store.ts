@@ -41,10 +41,10 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     set({ loading: true, error: null });
     try {
       const result = await window.teleexport.python.call('auth.check_session') as {
-        has_session: boolean;
+        hasSession: boolean;
         user?: User;
       };
-      if (result.has_session && result.user) {
+      if (result.hasSession && result.user) {
         set({ isLoggedIn: true, user: result.user, authStep: 'done' });
       } else {
         set({ authStep: 'phone' });
@@ -65,12 +65,12 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       }
       const result = await window.teleexport.python.call('auth.send_code', {
         phone,
-        api_id: parseInt(apiId, 10),
-        api_hash: apiHash,
+        apiId: parseInt(apiId, 10),
+        apiHash,
       }) as {
-        phone_code_hash: string;
+        phoneCodeHash: string;
       };
-      set({ phone, phoneCodeHash: result.phone_code_hash, authStep: 'code' });
+      set({ phone, phoneCodeHash: result.phoneCodeHash, authStep: 'code' });
     } catch (err) {
       set({ error: (err as Error).message });
     } finally {
@@ -85,10 +85,10 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       const result = await window.teleexport.python.call('auth.sign_in', {
         phone,
         code,
-        phone_code_hash: phoneCodeHash,
-      }) as { success: boolean; user?: User; requires_2fa?: boolean };
+        phoneCodeHash,
+      }) as { success: boolean; user?: User; requires_2fa?: boolean; requires2fa?: boolean };
 
-      if (result.requires_2fa) {
+      if (result.requires2fa) {
         set({ authStep: 'password' });
       } else if (result.success && result.user) {
         set({ isLoggedIn: true, user: result.user, authStep: 'done' });
