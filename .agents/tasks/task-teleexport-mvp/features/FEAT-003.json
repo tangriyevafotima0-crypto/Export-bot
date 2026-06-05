@@ -2,7 +2,7 @@
   "id": "FEAT-003",
   "type": "feat",
   "description": "Electron Main Process + React Frontend: Implement the Electron main process (main.ts, preload.ts, python-bridge.ts, ipc-handlers.ts) and the React frontend with all components (auth, dashboard, export wizard), Zustand stores, hooks, and types.",
-  "status": "pending",
+  "status": "in_progress",
   "steps": [
     "Create electron/main.ts: Electron app entry with BrowserWindow (frameless, dark bg), PythonBridge init, IPC handler registration, dev/prod URL loading as per plan",
     "Create electron/preload.ts: contextBridge exposing teleexport API (python.call, python.onEvent, python.offEvent, dialog.selectDirectory, dialog.openFile, app.getVersion)",
