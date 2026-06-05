@@ -2,7 +2,7 @@
   "id": "FEAT-001",
   "type": "feat",
   "description": "Create deploy.sh and run_server.py for headless server deployment of TeleExport on Ubuntu AWS servers",
-  "status": "in_progress",
+  "status": "completed",
   "steps": [
     "Create teleexport/run_server.py - a standalone Python script that runs the TeleExport backend without Electron IPC. It should: (1) import and initialize the TeleExportClient with api_id/api_hash from ~/.teleexport/config/settings.json, (2) provide a simple CLI interface or daemon mode for running exports, (3) handle authentication flow interactively on first run (ask phone, code, 2FA if needed), (4) after auth, keep the client connected and allow exports via a simple command interface or just stay connected as a service ready for future use.",
     "Create teleexport/deploy.sh - a comprehensive bash deployment script that runs with sudo on Ubuntu. The script must: (1) Show a banner/header for TeleExport, (2) Check system requirements (Ubuntu version, RAM >= 1GB, disk space >= 1GB free), (3) Install system dependencies (software-properties-common, build-essential), (4) Install Python 3.11+ via deadsnakes PPA if not already available, (5) Install pip for python3.11, (6) Install Python dependencies from teleexport/python/pyproject.toml using pip3.11, (7) Prompt user interactively for api_id (integer) and api_hash (string) with clear instructions pointing to https://my.telegram.org, (8) Write config to ~/.teleexport/config/settings.json with the provided credentials, (9) Create a systemd service file /etc/systemd/system/teleexport.service that runs run_server.py as the current user, (10) Enable and start the service, (11) Show final status with systemctl status, (12) Print clear instructions about what to enter on my.telegram.org (App title, Short name, Platform selection, etc.)",
@@ -26,5 +26,5 @@
     "Run: grep -q 'my.telegram.org' teleexport/deploy.sh (confirm instructions are included)"
   ],
   "blocked_reason": null,
-  "findings": ""
+  "findings": "Both files created and verified. deploy.sh passes bash -n syntax check, run_server.py passes AST parse. deploy.sh is executable. All key sections present (api_id, api_hash, systemd, systemctl, my.telegram.org)."
 }
