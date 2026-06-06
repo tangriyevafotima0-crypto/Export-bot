@@ -211,26 +211,63 @@ async def interactive_auth(api_id: int, api_hash: str):
                 await client.disconnect()
                 sys.exit(1)
 
-    # Step 7: Sign in with the code
-    print("\033[96mTizimga kirilmoqda...\033[0m")
-    try:
-        sign_in_result = await auth.sign_in(phone, code, phone_code_hash)
-    except Exception as e:
-        error_msg = str(e)
-        if "PhoneCodeExpired" in error_msg or "PHONE_CODE_EXPIRED" in error_msg:
-            print("\033[91mXato: Verifikatsiya kodi muddati tugagan.\033[0m")
-            print("\033[93mYangi kod olish uchun skriptni qayta ishga tushiring.\033[0m")
-        elif "PhoneCodeInvalid" in error_msg or "PHONE_CODE_INVALID" in error_msg:
-            print("\033[91mXato: Verifikatsiya kodi noto'g'ri.\033[0m")
-            print("\033[93mSkriptni qayta ishga tushiring va to'g'ri kodni kiriting.\033[0m")
-        elif "SessionPasswordNeeded" in error_msg or "Two" in error_msg:
-            # 2FA needed - handle below
-            sign_in_result = {"success": False, "requires_2fa": True}
-        else:
-            print("\033[91mTizimga kirishda xato: {}\033[0m".format(error_msg))
-            print("\033[93mSkriptni qayta ishga tushiring.\033[0m")
-            await client.disconnect()
-            sys.exit(1)
+    # Step 7: Sign in with the code.
+    # Retry on an invalid code (same phone_code_hash) and auto-resend on an
+    # expired code, so a single typo no longer forces a full restart (which
+    # would request a brand new code and push the account toward a flood-wait).
+    sign_in_result = None
+    max_attempts = 3
+    attempt = 0
+    while sign_in_result is None:
+        attempt += 1
+        print("\033[96mTizimga kirilmoqda...\033[0m")
+        try:
+            sign_in_result = await auth.sign_in(phone, code, phone_code_hash)
+        except Exception as e:
+            error_msg = str(e)
+            if "PhoneCodeInvalid" in error_msg or "PHONE_CODE_INVALID" in error_msg:
+                print("\033[91mXato: Verifikatsiya kodi noto'g'ri.\033[0m")
+                if attempt >= max_attempts:
+                    print("\033[91mJuda ko'p noto'g'ri urinish. Skriptni qayta ishga tushiring.\033[0m")
+                    await client.disconnect()
+                    sys.exit(1)
+                code = input("\033[93mKodni qayta kiriting: \033[0m").strip()
+                if not code:
+                    print("\033[91mXato: Kod bo'sh bo'lishi mumkin emas.\033[0m")
+                    await client.disconnect()
+                    sys.exit(1)
+                continue
+            elif "PhoneCodeExpired" in error_msg or "PHONE_CODE_EXPIRED" in error_msg:
+                print("\033[91mXato: Verifikatsiya kodi muddati tugagan.\033[0m")
+                print("\033[96mYangi kod SMS orqali yuborilmoqda...\033[0m")
+                try:
+                    resend = await auth.resend_code(phone, api_id, api_hash)
+                    phone_code_hash = resend["phone_code_hash"]
+                    print("\033[92m[OK] Yangi kod yuborildi ({}).\033[0m".format(
+                        resend.get("code_type", "Unknown")))
+                except Exception as re_err:
+                    print("\033[91mYangi kod yuborishda xato: {}\033[0m".format(re_err))
+                    print("\033[93mSkriptni qayta ishga tushiring.\033[0m")
+                    await client.disconnect()
+                    sys.exit(1)
+                code = input("\033[93mYangi kodni kiriting: \033[0m").strip()
+                if not code:
+                    print("\033[91mXato: Kod bo'sh bo'lishi mumkin emas.\033[0m")
+                    await client.disconnect()
+                    sys.exit(1)
+                continue
+            elif (
+                "SessionPasswordNeeded" in error_msg
+                or "two-step" in error_msg.lower()
+                or "password is required" in error_msg.lower()
+            ):
+                # 2FA needed - handle below
+                sign_in_result = {"success": False, "requires_2fa": True}
+            else:
+                print("\033[91mTizimga kirishda xato: {}\033[0m".format(error_msg))
+                print("\033[93mSkriptni qayta ishga tushiring.\033[0m")
+                await client.disconnect()
+                sys.exit(1)
 
     # Step 8: Handle 2FA if needed
     if not sign_in_result.get("success"):
