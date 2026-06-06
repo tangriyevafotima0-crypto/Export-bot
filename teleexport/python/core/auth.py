@@ -37,22 +37,38 @@ class AuthManager:
 
         return {"has_session": False}
 
-    async def send_code(self, phone: str, api_id: int, api_hash: str) -> dict:
-        """Initialize client and send verification code."""
+    async def send_code(self, phone: str, api_id: int, api_hash: str, force_sms: bool = False) -> dict:
+        """Initialize client and send verification code.
+
+        Args:
+            phone: Phone number with country code.
+            api_id: Telegram API ID.
+            api_hash: Telegram API hash.
+            force_sms: If True, forces SMS delivery instead of in-app code.
+        """
         self._phone = phone
 
         if self.client.client is None:
             await self.client.init(api_id, api_hash)
             await self.client.connect()
 
-        result = await self.client.send_code(phone)
+        result = await self.client.send_code(phone, force_sms=force_sms)
         self._phone_code_hash = result.phone_code_hash
         timeout = getattr(result, "timeout", 60) or 60
+        code_type = type(result.type).__name__ if result.type else "Unknown"
 
         return {
             "phone_code_hash": result.phone_code_hash,
             "timeout": timeout,
+            "code_type": code_type,
         }
+
+    async def resend_code(self, phone: str, api_id: int, api_hash: str) -> dict:
+        """Resend verification code via SMS (force_sms=True).
+
+        Use this when the user did not receive the code in the Telegram app.
+        """
+        return await self.send_code(phone, api_id, api_hash, force_sms=True)
 
     async def sign_in(self, phone: str, code: str, phone_code_hash: str) -> dict:
         """Sign in with the verification code."""
