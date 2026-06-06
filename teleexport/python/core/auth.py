@@ -84,7 +84,9 @@ class AuthManager:
             await self.client.connect()
 
         if not self._phone_code_hash:
-            raise ValueError("No phone_code_hash available. Call send_code() first.")
+            # Instead of raising, attempt a fresh send_code to recover
+            result = await self.send_code(phone, api_id, api_hash)
+            return result
 
         # Use the raw ResendCodeRequest API for SMS delivery
         result = await self.client.resend_code_sms(phone, self._phone_code_hash)

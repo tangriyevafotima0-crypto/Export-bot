@@ -60,7 +60,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     set({ loading: true, error: null });
     try {
       if (!apiId || !apiHash) {
-        set({ error: 'API ID and API Hash are required' });
+        set({ error: 'API ID and API Hash are required', loading: false });
         return;
       }
       const result = await window.teleexport.python.call('auth.send_code', {
@@ -68,11 +68,29 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         apiId: parseInt(apiId, 10),
         apiHash,
       }) as {
-        phoneCodeHash: string;
+        phoneCodeHash?: string;
+        error?: string;
       };
+
+      // Handle error returned from Python handler
+      if (result.error) {
+        set({ error: result.error, loading: false });
+        return;
+      }
+
+      if (!result.phoneCodeHash) {
+        set({ error: 'Server did not return phoneCodeHash', loading: false });
+        return;
+      }
+
       set({ phone, phoneCodeHash: result.phoneCodeHash, authStep: 'code' });
     } catch (err) {
-      set({ error: (err as Error).message });
+      const msg = (err as Error).message;
+      if (msg.includes('timed out')) {
+        set({ error: 'Python server did not respond. Please try again.' });
+      } else {
+        set({ error: msg });
+      }
     } finally {
       set({ loading: false });
     }
