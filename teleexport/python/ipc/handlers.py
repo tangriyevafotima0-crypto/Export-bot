@@ -1,5 +1,6 @@
 """Register all RPC method handlers for the IPC server."""
 import json
+import logging
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
@@ -10,6 +11,8 @@ from ..core.session_manager import SessionManager
 from ..core.config import DEFAULT_SETTINGS, EXPORTS_DIR, CONFIG_DIR
 from ..export.engine import ExportEngine, ExportConfig
 from ..export.chat_scanner import ChatScanner
+
+log = logging.getLogger("teleexport.handlers")
 
 SETTINGS_FILE = CONFIG_DIR / "settings.json"
 
@@ -62,10 +65,37 @@ def register_handlers(server: IPCServer, app):
         return await auth_manager.check_session()
 
     async def auth_send_code(params, msg_id):
-        phone = params["phone"]
-        api_id = params["api_id"]
-        api_hash = params["api_hash"]
+        log.debug("[send_code] params keys: %s", list(params.keys()))
+
+        phone = params.get("phone", "").strip()
+        api_id = params.get("api_id")
+        api_hash = params.get("api_hash", "").strip()
+
+        log.debug("[send_code] api_id type: %s, value: %r", type(api_id), api_id)
+        log.debug("[send_code] phone: %r", phone)
+
+        # Validation
+        if not phone:
+            return {"error": "phone is required"}
+        if not api_id or not api_hash:
+            return {"error": "api_id and api_hash are required"}
+
+        # Type safety
+        try:
+            api_id = int(api_id)
+        except (ValueError, TypeError):
+            return {"error": f"api_id must be a number, got: {api_id!r}"}
+
+        # Normalize phone format
+        if not phone.startswith("+"):
+            phone = "+" + phone
+
+        log.debug("[send_code] client state: %s", app.client.client)
+
         result = await auth_manager.send_code(phone, api_id, api_hash)
+
+        log.debug("[send_code] result: %s", result)
+
         # Persist api_id and api_hash for session resume on future cold starts
         _settings["api_id"] = api_id
         _settings["api_hash"] = api_hash
@@ -90,11 +120,26 @@ def register_handlers(server: IPCServer, app):
         return await auth_manager.sign_in_2fa(password)
 
     async def auth_resend_code(params, msg_id):
-        phone = params["phone"]
+        phone = params.get("phone", "").strip()
+        phone_code_hash = params.get("phone_code_hash")
         api_id = params.get("api_id") or _settings.get("api_id")
         api_hash = params.get("api_hash") or _settings.get("api_hash")
+
+        if not phone:
+            return {"error": "phone is required"}
         if not api_id or not api_hash:
             return {"error": "api_id and api_hash required"}
+
+        # Use phone_code_hash from frontend if provided, otherwise fall back
+        # to the hash stored in AuthManager from the last send_code call.
+        if not phone_code_hash:
+            if not auth_manager._phone_code_hash:
+                return {"error": "No phone_code_hash available. Call send_code first."}
+            phone_code_hash = auth_manager._phone_code_hash
+        else:
+            # Sync the hash so AuthManager can use it for the raw API call
+            auth_manager._phone_code_hash = phone_code_hash
+
         result = await auth_manager.resend_code(phone, int(api_id), str(api_hash))
         server.send_event("auth.code_resent", {"phone": phone, "code_type": result.get("code_type")})
         return result

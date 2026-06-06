@@ -47,12 +47,32 @@ interface PendingCall {
 const MAX_RESTART_ATTEMPTS = 3;
 const SHUTDOWN_TIMEOUT_MS = 5000;
 
+/**
+ * Determine the correct Python executable for the current platform.
+ * Priority: TELEEXPORT_PYTHON env var > venv > python3 > python
+ */
+function findPythonExecutable(): string {
+  // Allow explicit override via environment variable
+  if (process.env.TELEEXPORT_PYTHON) {
+    return process.env.TELEEXPORT_PYTHON;
+  }
+
+  // On Windows, 'python' is typically the correct command
+  if (process.platform === 'win32') {
+    return 'python';
+  }
+
+  // On Unix/Mac, prefer python3 to avoid invoking Python 2
+  return 'python3';
+}
+
 export class PythonBridge extends EventEmitter {
   private process: ChildProcess | null = null;
   private pendingCalls: Map<string, PendingCall> = new Map();
   private callId = 0;
   private buffer = '';
   private pythonPath: string;
+  private pythonExecutable: string;
   private ready = false;
   private readyPromise: Promise<void> | null = null;
   private resolveReady: (() => void) | null = null;
@@ -68,6 +88,7 @@ export class PythonBridge extends EventEmitter {
     } else {
       this.pythonPath = path.join(process.resourcesPath, 'python', 'main.py');
     }
+    this.pythonExecutable = findPythonExecutable();
   }
 
   start(): void {
@@ -78,7 +99,7 @@ export class PythonBridge extends EventEmitter {
       this.rejectReady = reject;
     });
 
-    this.process = spawn('python', [this.pythonPath], {
+    this.process = spawn(this.pythonExecutable, [this.pythonPath], {
       stdio: ['pipe', 'pipe', 'pipe'],
       env: { ...process.env },
     });
