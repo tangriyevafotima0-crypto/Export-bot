@@ -37,17 +37,16 @@ class AuthManager:
 
         return {"has_session": False}
 
-    async def send_code(self, phone: str, api_id: int, api_hash: str, force_sms: bool = False) -> dict:
+    async def send_code(self, phone: str, api_id: int, api_hash: str) -> dict:
         """Send verification code to the phone number.
 
-        On the first call, force_sms should be False (code goes to Telegram app).
-        On subsequent calls, force_sms=True triggers SMS delivery.
+        First call sends the code to the Telegram app. Use resend_code()
+        after this to trigger SMS delivery via the raw ResendCodeRequest API.
 
         Args:
             phone: Phone number with country code.
             api_id: Telegram API ID.
             api_hash: Telegram API hash.
-            force_sms: If True, forces SMS delivery (only works after first call).
         """
         self._phone = phone
 
@@ -56,7 +55,7 @@ class AuthManager:
             await self.client.init(api_id, api_hash)
             await self.client.connect()
 
-        result = await self.client.send_code(phone, force_sms=force_sms)
+        result = await self.client.send_code(phone)
         self._phone_code_hash = result.phone_code_hash
         timeout = getattr(result, "timeout", 60) or 60
         code_type = type(result.type).__name__ if result.type else "Unknown"
@@ -68,11 +67,14 @@ class AuthManager:
         }
 
     async def resend_code(self, phone: str, api_id: int, api_hash: str) -> dict:
-        """Resend verification code via SMS.
+        """Resend verification code via SMS using the raw ResendCodeRequest API.
 
-        This calls send_code_request with force_sms=True which tells Telegram
-        to send an SMS instead of an in-app notification. This only works
-        AFTER an initial send_code call has been made on the same connection.
+        This uses the Telethon raw API (ResendCodeRequest) which triggers the
+        next available delivery method (usually SMS). The deprecated force_sms
+        parameter no longer works in newer Telethon versions.
+
+        MUST be called AFTER an initial send_code() on the same connection.
+        Requires the phone_code_hash from the initial send_code result.
         """
         self._phone = phone
 
@@ -81,8 +83,11 @@ class AuthManager:
             await self.client.init(api_id, api_hash)
             await self.client.connect()
 
-        # Use the dedicated resend method which uses force_sms=True
-        result = await self.client.resend_code(phone)
+        if not self._phone_code_hash:
+            raise ValueError("No phone_code_hash available. Call send_code() first.")
+
+        # Use the raw ResendCodeRequest API for SMS delivery
+        result = await self.client.resend_code_sms(phone, self._phone_code_hash)
         self._phone_code_hash = result.phone_code_hash
         timeout = getattr(result, "timeout", 60) or 60
         code_type = type(result.type).__name__ if result.type else "Unknown"
