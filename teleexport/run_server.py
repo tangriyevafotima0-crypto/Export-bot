@@ -4,6 +4,12 @@
 Standalone script that runs the TeleExport Python backend without Electron.
 Handles authentication interactively on first run, then runs as a daemon service
 with a Unix socket JSON-RPC interface for triggering exports.
+
+IMPORTANT: This script fixes the auth code delivery issue by:
+1. Cleaning session files BEFORE creating the client (not after)
+2. Using correct session path (without .session extension - Telethon adds it)
+3. Single initialization path - no double init/connect
+4. Proper force_sms handling (only as resend after first send_code)
 """
 import asyncio
 import json
@@ -51,42 +57,58 @@ def clean_session_files():
     """Remove stale session files from ~/.teleexport/sessions/ for a clean auth start.
 
     This prevents conflicts from previously used api_id with different phone/account.
+    Must be called BEFORE creating/connecting a TelegramClient.
     """
     if not SESSION_DIR.exists():
         return
 
+    # Telethon creates files like "server.session" (it adds .session to the name we give)
     session_files = list(SESSION_DIR.glob("*.session"))
-    if session_files:
-        print("\033[93m[Session Cleanup] Found {} existing session file(s):\033[0m".format(len(session_files)))
-        for sf in session_files:
+    journal_files = list(SESSION_DIR.glob("*.session-journal"))
+
+    all_files = session_files + journal_files
+    if all_files:
+        print("\033[93m[Session Cleanup] Found {} session file(s):\033[0m".format(len(all_files)))
+        for sf in all_files:
             print("  Removing: {}".format(sf.name))
             sf.unlink()
-        # Also remove journal files that SQLite creates
-        for journal in SESSION_DIR.glob("*.session-journal"):
-            journal.unlink()
         print("\033[92m[Session Cleanup] Done. Starting with clean session.\033[0m\n")
     else:
         print("\033[96m[Session] No stale sessions found. Clean start.\033[0m\n")
 
 
-async def interactive_auth(client: TeleExportClient, auth: AuthManager, api_id: int, api_hash: str):
-    """Handle interactive authentication flow with improved error handling."""
+async def interactive_auth(api_id: int, api_hash: str):
+    """Handle interactive authentication flow.
+
+    This creates a fresh client after cleaning sessions, performs authentication,
+    and returns the connected+authenticated client.
+    """
     print("\n\033[96m=== TeleExport Authentication ===\033[0m")
     print("No active session found. Starting authentication...\n")
 
-    # Clean up stale session files for a fresh start
+    # Step 1: Clean session files BEFORE creating client
     clean_session_files()
 
-    # Re-initialize client after session cleanup
+    # Step 2: Create fresh client and connect (single init path)
+    client = TeleExportClient(session_name="server")
     await client.init(api_id, api_hash)
     await client.connect()
 
+    print("\033[92m[DEBUG] Client initialized and connected.\033[0m")
+    print("\033[96m[DEBUG] Session path: {}\033[0m".format(client.session_path))
+
+    # Step 3: Create auth manager with this client
+    auth = AuthManager(client)
+
+    # Step 4: Get phone number
     phone = input("\033[93mEnter your phone number (with country code, e.g. +1234567890): \033[0m").strip()
     if not phone:
         print("\033[91mError: Phone number cannot be empty.\033[0m")
+        await client.disconnect()
         sys.exit(1)
 
-    print("\033[96mSending verification code...\033[0m")
+    # Step 5: Send verification code (first call - goes to Telegram app)
+    print("\033[96mSending verification code to {}...\033[0m".format(phone))
     try:
         result = await auth.send_code(phone, api_id, api_hash)
     except Exception as e:
@@ -96,7 +118,7 @@ async def interactive_auth(client: TeleExportClient, auth: AuthManager, api_id: 
             print("\033[93mPlease wait a few minutes (or up to 24h) and try again.\033[0m")
         elif "PhoneNumberInvalid" in error_msg or "PHONE_NUMBER_INVALID" in error_msg:
             print("\033[91mError: Invalid phone number format.\033[0m")
-            print("\033[93mMake sure to include the country code (e.g. +1 for US).\033[0m")
+            print("\033[93mMake sure to include the country code (e.g. +998 for UZ, +1 for US).\033[0m")
         elif "PhoneNumberBanned" in error_msg or "PHONE_NUMBER_BANNED" in error_msg:
             print("\033[91mError: This phone number has been banned by Telegram.\033[0m")
         elif "ApiIdInvalid" in error_msg or "API_ID_INVALID" in error_msg:
@@ -104,41 +126,58 @@ async def interactive_auth(client: TeleExportClient, auth: AuthManager, api_id: 
             print("\033[93mDouble-check your credentials at https://my.telegram.org\033[0m")
         else:
             print("\033[91mError sending code: {}\033[0m".format(error_msg))
+            traceback.print_exc()
+        await client.disconnect()
         sys.exit(1)
 
     phone_code_hash = result["phone_code_hash"]
 
-    # Debug output: show how the code was sent
+    # Show debug info about how code was delivered
     code_type = result.get("code_type", "Unknown")
-    print("\033[96m[DEBUG] Code delivery type: {}\033[0m".format(code_type))
-    print("\033[93mNote: The code is usually sent to your Telegram app first.\033[0m")
-    print("\033[93m      Check the Telegram app on your other devices.\033[0m")
+    timeout = result.get("timeout", 60)
+    print("\033[92m[OK] Verification code sent successfully!\033[0m")
+    print("\033[96m[DEBUG] Code delivery method: {}\033[0m".format(code_type))
+    print("\033[96m[DEBUG] Code timeout: {} seconds\033[0m".format(timeout))
+    print("\033[96m[DEBUG] Phone code hash: {}...\033[0m".format(phone_code_hash[:8]))
+    print("")
+    print("\033[93mThe code was sent to your Telegram app (check all logged-in devices).\033[0m")
+    print("\033[93mIf you don't see it, press Enter to resend via SMS.\033[0m")
+    print("")
 
     code = input("\033[93mEnter the verification code (or press Enter to resend via SMS): \033[0m").strip()
 
-    # If user pressed Enter without code, resend via SMS
+    # Step 6: If user pressed Enter without code, resend via SMS
     if not code:
-        print("\033[96mResending code via SMS (force_sms=True)...\033[0m")
+        print("\033[96mResending code via SMS...\033[0m")
         try:
+            # resend_code uses force_sms=True internally - this works because
+            # we already made an initial send_code_request on this connection
             result = await auth.resend_code(phone, api_id, api_hash)
             phone_code_hash = result["phone_code_hash"]
             code_type = result.get("code_type", "Unknown")
-            print("\033[96m[DEBUG] Resend code delivery type: {}\033[0m".format(code_type))
-            print("\033[92mCode resent! Check your SMS messages.\033[0m")
+            print("\033[92m[OK] Code resent via SMS!\033[0m")
+            print("\033[96m[DEBUG] Resend delivery method: {}\033[0m".format(code_type))
+            print("\033[93mCheck your SMS inbox for the code.\033[0m")
         except Exception as e:
             error_msg = str(e)
             if "FloodWait" in error_msg or "FLOOD" in error_msg:
                 print("\033[91mError: Too many attempts. Please wait and try again later.\033[0m")
+                await client.disconnect()
                 sys.exit(1)
             else:
                 print("\033[91mError resending code: {}\033[0m".format(error_msg))
+                print("\033[93mTry running the script again.\033[0m")
+                await client.disconnect()
                 sys.exit(1)
 
         code = input("\033[93mEnter the verification code from SMS: \033[0m").strip()
         if not code:
             print("\033[91mError: Verification code cannot be empty.\033[0m")
+            await client.disconnect()
             sys.exit(1)
 
+    # Step 7: Sign in with the code
+    print("\033[96mSigning in...\033[0m")
     try:
         sign_in_result = await auth.sign_in(phone, code, phone_code_hash)
     except Exception as e:
@@ -150,19 +189,22 @@ async def interactive_auth(client: TeleExportClient, auth: AuthManager, api_id: 
             print("\033[91mError: Incorrect verification code.\033[0m")
             print("\033[93mPlease re-run this script and enter the correct code.\033[0m")
         elif "SessionPasswordNeeded" in error_msg or "Two" in error_msg:
-            # 2FA needed -- handled below
+            # 2FA needed - handle below
             sign_in_result = {"success": False, "requires_2fa": True}
         else:
             print("\033[91mSign-in error: {}\033[0m".format(error_msg))
             print("\033[93mPlease re-run this script to try again.\033[0m")
+            await client.disconnect()
             sys.exit(1)
 
+    # Step 8: Handle 2FA if needed
     if not sign_in_result.get("success"):
         if sign_in_result.get("requires_2fa"):
             print("\033[93mTwo-factor authentication required.\033[0m")
             password = input("\033[93mEnter your 2FA password: \033[0m").strip()
             if not password:
                 print("\033[91mError: 2FA password cannot be empty.\033[0m")
+                await client.disconnect()
                 sys.exit(1)
             try:
                 sign_in_result = await auth.sign_in_2fa(password)
@@ -173,11 +215,14 @@ async def interactive_auth(client: TeleExportClient, auth: AuthManager, api_id: 
                     print("\033[93mPlease re-run this script and enter the correct password.\033[0m")
                 else:
                     print("\033[91m2FA error: {}\033[0m".format(error_msg))
+                await client.disconnect()
                 sys.exit(1)
         else:
             print("\033[91mError: Sign-in failed.\033[0m")
+            await client.disconnect()
             sys.exit(1)
 
+    # Step 9: Verify success
     if sign_in_result.get("success"):
         user = sign_in_result["user"]
         print("\n\033[92mAuthenticated successfully!\033[0m")
@@ -190,7 +235,10 @@ async def interactive_auth(client: TeleExportClient, auth: AuthManager, api_id: 
         print("")
     else:
         print("\033[91mAuthentication failed.\033[0m")
+        await client.disconnect()
         sys.exit(1)
+
+    return client
 
 
 class UnixSocketRPCServer:
@@ -384,7 +432,14 @@ async def run_daemon(client: TeleExportClient):
 
 
 async def main():
-    """Main entry point for headless TeleExport server."""
+    """Main entry point for headless TeleExport server.
+
+    Flow:
+    1. Setup directories and load config
+    2. Create client with correct session path
+    3. Try to connect - if authorized, go to daemon mode
+    4. If not authorized, run interactive auth (which handles session cleanup internally)
+    """
     # Setup directories
     setup_dirs()
 
@@ -393,14 +448,26 @@ async def main():
     api_id = config["api_id"]
     api_hash = config["api_hash"]
 
-    # Initialize client
+    print("\033[96m[TeleExport] Starting...\033[0m")
+    print("\033[96m[DEBUG] Config loaded - api_id: {}\033[0m".format(api_id))
+    print("\033[96m[DEBUG] Session dir: {}\033[0m".format(SESSION_DIR))
+
+    # Create client and try to connect with existing session
     client = TeleExportClient(session_name="server")
     await client.init(api_id, api_hash)
 
-    # Check if already authorized
+    print("\033[96m[DEBUG] Session file path: {}.session\033[0m".format(client.session_path))
+
     is_authorized = await client.connect()
 
-    if not is_authorized:
+    if is_authorized:
+        # Already authenticated - go straight to daemon mode
+        me = await client.get_me()
+        print("\033[92m[TeleExport] Session active for: {} {}\033[0m".format(
+            me.first_name or "",
+            me.last_name or ""
+        ).strip())
+    else:
         # Need interactive auth
         if not sys.stdin.isatty():
             print("\033[91mError: No active session and stdin is not a terminal.\033[0m")
@@ -409,14 +476,12 @@ async def main():
             await client.disconnect()
             sys.exit(1)
 
-        auth = AuthManager(client)
-        await interactive_auth(client, auth, api_id, api_hash)
-    else:
-        me = await client.get_me()
-        print("\033[92m[TeleExport] Session active for: {} {}\033[0m".format(
-            me.first_name or "",
-            me.last_name or ""
-        ).strip())
+        # Disconnect the current client - interactive_auth will create a fresh one
+        # after cleaning session files
+        await client.disconnect()
+
+        # interactive_auth handles: clean sessions -> create client -> init -> connect -> auth
+        client = await interactive_auth(api_id, api_hash)
 
     # Run as daemon
     await run_daemon(client)

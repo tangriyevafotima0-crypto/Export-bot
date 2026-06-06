@@ -2,6 +2,7 @@
 #
 # TeleExport Deployment Script
 # Automated headless deployment for Ubuntu AWS servers
+# Fully cleans old installation before fresh deploy
 #
 set -eo pipefail
 
@@ -59,7 +60,72 @@ info "Running as root, service will run as user: ${GREEN}${REAL_USER}${NC}"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 info "TeleExport directory: $SCRIPT_DIR"
 
+# ─── Clean old installation ───────────────────────────────────────────────────
+echo ""
+echo -e "${YELLOW}╔══════════════════════════════════════════════════╗${NC}"
+echo -e "${YELLOW}║       Cleaning Previous Installation             ║${NC}"
+echo -e "${YELLOW}╚══════════════════════════════════════════════════╝${NC}"
+echo ""
+
+# Stop and remove old systemd service
+if systemctl is-active --quiet teleexport.service 2>/dev/null; then
+    info "Stopping running teleexport service..."
+    systemctl stop teleexport.service
+    success "Service stopped."
+fi
+
+if systemctl is-enabled --quiet teleexport.service 2>/dev/null; then
+    info "Disabling old teleexport service..."
+    systemctl disable teleexport.service > /dev/null 2>&1
+    success "Service disabled."
+fi
+
+if [ -f /etc/systemd/system/teleexport.service ]; then
+    info "Removing old systemd service file..."
+    rm -f /etc/systemd/system/teleexport.service
+    systemctl daemon-reload
+    success "Old service file removed."
+fi
+
+# Remove old venv
+VENV_DIR="${REAL_HOME}/.teleexport/venv"
+if [ -d "$VENV_DIR" ]; then
+    info "Removing old Python virtual environment..."
+    rm -rf "$VENV_DIR"
+    success "Old venv removed."
+fi
+
+# Remove old session files (they will be re-created during auth)
+SESSION_DIR_PATH="${REAL_HOME}/.teleexport/sessions"
+if [ -d "$SESSION_DIR_PATH" ]; then
+    info "Removing old session files..."
+    rm -rf "$SESSION_DIR_PATH"
+    success "Old sessions removed."
+fi
+
+# Remove old config (will be re-created with new credentials)
+CONFIG_DIR_PATH="${REAL_HOME}/.teleexport/config"
+if [ -d "$CONFIG_DIR_PATH" ]; then
+    info "Removing old config..."
+    rm -rf "$CONFIG_DIR_PATH"
+    success "Old config removed."
+fi
+
+# Remove stale Unix socket
+SOCKET_PATH="${REAL_HOME}/.teleexport/teleexport.sock"
+if [ -e "$SOCKET_PATH" ]; then
+    info "Removing stale socket file..."
+    rm -f "$SOCKET_PATH"
+    success "Socket removed."
+fi
+
+# Remove old __pycache__ directories
+find "$SCRIPT_DIR" -type d -name "__pycache__" -exec rm -rf {} + 2>/dev/null || true
+
+success "Old installation cleaned."
+
 # ─── System checks ───────────────────────────────────────────────────────────
+echo ""
 info "Checking system requirements..."
 
 # Check Ubuntu
@@ -115,11 +181,7 @@ success "pip ready: $(python3.11 -m pip --version 2>&1 | head -1)"
 
 # ─── Create Python virtual environment ─────────────────────────────────────────
 echo ""
-info "Creating Python virtual environment..."
-VENV_DIR="${REAL_HOME}/.teleexport/venv"
-if [ -d "$VENV_DIR" ]; then
-    info "Virtual environment already exists, upgrading..."
-fi
+info "Creating fresh Python virtual environment..."
 sudo -u "$REAL_USER" python3.11 -m venv "$VENV_DIR"
 success "Virtual environment created at ${VENV_DIR}"
 
@@ -174,13 +236,11 @@ done
 # ─── Write config ─────────────────────────────────────────────────────────────
 echo ""
 info "Writing configuration..."
-CONFIG_DIR="${REAL_HOME}/.teleexport/config"
-SESSION_DIR="${REAL_HOME}/.teleexport/sessions"
 EXPORTS_DIR="${REAL_HOME}/TeleExport/exports"
 
-mkdir -p "$CONFIG_DIR" "$SESSION_DIR" "$EXPORTS_DIR"
+mkdir -p "$CONFIG_DIR_PATH" "$SESSION_DIR_PATH" "$EXPORTS_DIR"
 
-cat > "${CONFIG_DIR}/settings.json" <<EOF
+cat > "${CONFIG_DIR_PATH}/settings.json" <<EOF
 {
     "api_id": ${API_ID},
     "api_hash": "${API_HASH}",
@@ -199,9 +259,12 @@ EOF
 # Fix ownership and permissions
 chown -R "${REAL_USER}:${REAL_USER}" "${REAL_HOME}/.teleexport"
 chown -R "${REAL_USER}:${REAL_USER}" "${REAL_HOME}/TeleExport"
-chmod 600 "${CONFIG_DIR}/settings.json"
-chmod 700 "${SESSION_DIR}"
-success "Configuration saved to ${CONFIG_DIR}/settings.json"
+chmod 600 "${CONFIG_DIR_PATH}/settings.json"
+chmod 700 "${SESSION_DIR_PATH}"
+success "Configuration saved to ${CONFIG_DIR_PATH}/settings.json"
+
+# ─── Make run_server.py executable ────────────────────────────────────────────
+chmod +x "${SCRIPT_DIR}/run_server.py"
 
 # ─── Create systemd service ──────────────────────────────────────────────────
 echo ""
@@ -235,21 +298,30 @@ EOF
 
 success "Systemd service created at /etc/systemd/system/teleexport.service"
 
-# ─── Enable and start service ─────────────────────────────────────────────────
-info "Enabling and starting service..."
+# ─── Enable service (but don't start - needs auth first) ─────────────────────
+info "Enabling service..."
 systemctl daemon-reload
 systemctl enable teleexport.service > /dev/null 2>&1
-success "Service enabled (will start on boot)."
+success "Service enabled (will start on boot after authentication)."
 
 echo ""
-warn "IMPORTANT: Before starting the service, you must authenticate first!"
+echo -e "${CYAN}╔══════════════════════════════════════════════════╗${NC}"
+echo -e "${CYAN}║            Authentication Required               ║${NC}"
+echo -e "${CYAN}╚══════════════════════════════════════════════════╝${NC}"
 echo ""
-echo -e "${CYAN}Run the following command as your user to complete authentication:${NC}"
+warn "You must authenticate before starting the service!"
 echo ""
-echo -e "  ${GREEN}sudo -u ${REAL_USER} ${VENV_PYTHON} ${RUN_SCRIPT}${NC}"
+echo -e "${CYAN}Run this command to authenticate:${NC}"
 echo ""
-echo -e "${CYAN}After authentication completes successfully (you'll see 'Authenticated successfully!'),${NC}"
-echo -e "${CYAN}press Ctrl+C and then start the service:${NC}"
+echo -e "  ${GREEN}${VENV_PYTHON} ${RUN_SCRIPT}${NC}"
+echo ""
+echo -e "${CYAN}What will happen:${NC}"
+echo -e "  1. It will ask for your phone number (with country code like +998...)"
+echo -e "  2. A verification code will be sent to your Telegram app"
+echo -e "  3. If you don't receive it, press Enter to get an SMS"
+echo -e "  4. Enter the code to complete authentication"
+echo ""
+echo -e "${CYAN}After authentication, start the service:${NC}"
 echo ""
 echo -e "  ${GREEN}sudo systemctl start teleexport${NC}"
 echo -e "  ${GREEN}sudo systemctl status teleexport${NC}"
@@ -267,6 +339,7 @@ echo -e "  Start:   ${GREEN}sudo systemctl start teleexport${NC}"
 echo -e "  Stop:    ${GREEN}sudo systemctl stop teleexport${NC}"
 echo -e "  Status:  ${GREEN}sudo systemctl status teleexport${NC}"
 echo -e "  Logs:    ${GREEN}sudo journalctl -u teleexport -f${NC}"
+echo -e "  Restart: ${GREEN}sudo systemctl restart teleexport${NC}"
 echo ""
 
 # ─── my.telegram.org Instructions ─────────────────────────────────────────────
