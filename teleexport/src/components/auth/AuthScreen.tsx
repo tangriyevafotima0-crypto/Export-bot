@@ -5,7 +5,7 @@ import { CodeInput } from './CodeInput';
 import { PasswordInput } from './PasswordInput';
 
 export function AuthScreen() {
-  const { authStep, phone, loading, error, checkSession, sendCode, verifyCode, verifyPassword } = useAuthStore();
+  const { authStep, phone, loading, error, checkSession, sendCode, resendCode, verifyCode, verifyPassword } = useAuthStore();
 
   useEffect(() => {
     checkSession();
@@ -18,7 +18,7 @@ export function AuthScreen() {
           <PhoneInput onSubmit={sendCode} loading={loading} error={error} />
         )}
         {authStep === 'code' && (
-          <CodeInput onSubmit={verifyCode} loading={loading} error={error} phone={phone} />
+          <CodeInput onSubmit={verifyCode} onResend={resendCode} loading={loading} error={error} phone={phone} />
         )}
         {authStep === 'password' && (
           <PasswordInput onSubmit={verifyPassword} loading={loading} error={error} />

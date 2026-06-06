@@ -23,6 +23,15 @@ class IPCServer:
         self._running = True
         loop = asyncio.get_event_loop()
 
+        # Emit a readiness signal immediately so the Electron bridge knows the
+        # process is up. Without this, the bridge's readyPromise never resolves
+        # (it only flips ready=true on the first stdout byte), while the bridge
+        # only writes an RPC request *after* ready -> classic startup deadlock.
+        sys.stdout.write(
+            json.dumps({"id": None, "event": "ready"}, ensure_ascii=False) + "\n"
+        )
+        sys.stdout.flush()
+
         async def read_stdin():
             while self._running:
                 line = await loop.run_in_executor(None, sys.stdin.readline)

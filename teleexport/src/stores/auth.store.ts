@@ -21,6 +21,7 @@ interface AuthState {
 
   checkSession: () => Promise<void>;
   sendCode: (phone: string, apiId?: string, apiHash?: string) => Promise<void>;
+  resendCode: () => Promise<void>;
   verifyCode: (code: string) => Promise<void>;
   verifyPassword: (password: string) => Promise<void>;
   logout: () => Promise<void>;
@@ -84,6 +85,39 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       }
 
       set({ phone, phoneCodeHash: result.phoneCodeHash, authStep: 'code' });
+    } catch (err) {
+      const msg = (err as Error).message;
+      if (msg.includes('timed out')) {
+        set({ error: 'Python server did not respond. Please try again.' });
+      } else {
+        set({ error: msg });
+      }
+    } finally {
+      set({ loading: false });
+    }
+  },
+
+  resendCode: async () => {
+    const { phone, phoneCodeHash } = get();
+    set({ loading: true, error: null });
+    try {
+      const result = await window.teleexport.python.call('auth.resend_code', {
+        phone,
+        phoneCodeHash,
+      }) as {
+        phoneCodeHash?: string;
+        codeType?: string;
+        error?: string;
+      };
+
+      if (result.error) {
+        set({ error: result.error, loading: false });
+        return;
+      }
+
+      if (result.phoneCodeHash) {
+        set({ phoneCodeHash: result.phoneCodeHash });
+      }
     } catch (err) {
       const msg = (err as Error).message;
       if (msg.includes('timed out')) {
