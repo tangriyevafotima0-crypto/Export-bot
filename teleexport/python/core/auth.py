@@ -1,4 +1,6 @@
 """Authentication manager for TeleExport."""
+from telethon.errors import SessionPasswordNeededError
+
 from .client import TeleExportClient
 from .config import SESSION_DIR
 
@@ -114,9 +116,18 @@ class AuthManager:
                     "phone": user.phone,
                 },
             }
+        except SessionPasswordNeededError:
+            # Account has 2FA enabled; the frontend must collect the password.
+            return {"success": False, "requires_2fa": True}
         except Exception as e:
+            # Fallback for environments where the typed error isn't raised
+            # (older Telethon, wrapped exceptions). Match on the message.
             error_msg = str(e)
-            if "SessionPasswordNeeded" in error_msg or "Two" in error_msg:
+            if (
+                "SessionPasswordNeeded" in error_msg
+                or "password is required" in error_msg.lower()
+                or "two-step" in error_msg.lower()
+            ):
                 return {"success": False, "requires_2fa": True}
             raise
 
