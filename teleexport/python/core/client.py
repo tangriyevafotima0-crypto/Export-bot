@@ -29,9 +29,14 @@ class TeleExportClient:
         await self.client.connect()
         return await self.client.is_user_authorized()
 
-    async def send_code(self, phone: str):
-        """Send verification code to phone number."""
-        return await self.client.send_code_request(phone)
+    async def send_code(self, phone: str, force_sms: bool = False):
+        """Send verification code to phone number.
+
+        Args:
+            phone: Phone number with country code.
+            force_sms: If True, forces SMS delivery instead of in-app code.
+        """
+        return await self.client.send_code_request(phone, force_sms=force_sms)
 
     async def sign_in(self, phone: str, code: str, phone_code_hash: str):
         """Sign in with the verification code."""

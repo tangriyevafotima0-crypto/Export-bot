@@ -47,10 +47,39 @@ def load_config() -> dict:
     return {"api_id": int(api_id), "api_hash": str(api_hash)}
 
 
+def clean_session_files():
+    """Remove stale session files from ~/.teleexport/sessions/ for a clean auth start.
+
+    This prevents conflicts from previously used api_id with different phone/account.
+    """
+    if not SESSION_DIR.exists():
+        return
+
+    session_files = list(SESSION_DIR.glob("*.session"))
+    if session_files:
+        print("\033[93m[Session Cleanup] Found {} existing session file(s):\033[0m".format(len(session_files)))
+        for sf in session_files:
+            print("  Removing: {}".format(sf.name))
+            sf.unlink()
+        # Also remove journal files that SQLite creates
+        for journal in SESSION_DIR.glob("*.session-journal"):
+            journal.unlink()
+        print("\033[92m[Session Cleanup] Done. Starting with clean session.\033[0m\n")
+    else:
+        print("\033[96m[Session] No stale sessions found. Clean start.\033[0m\n")
+
+
 async def interactive_auth(client: TeleExportClient, auth: AuthManager, api_id: int, api_hash: str):
     """Handle interactive authentication flow with improved error handling."""
     print("\n\033[96m=== TeleExport Authentication ===\033[0m")
     print("No active session found. Starting authentication...\n")
+
+    # Clean up stale session files for a fresh start
+    clean_session_files()
+
+    # Re-initialize client after session cleanup
+    await client.init(api_id, api_hash)
+    await client.connect()
 
     phone = input("\033[93mEnter your phone number (with country code, e.g. +1234567890): \033[0m").strip()
     if not phone:
@@ -79,10 +108,36 @@ async def interactive_auth(client: TeleExportClient, auth: AuthManager, api_id: 
 
     phone_code_hash = result["phone_code_hash"]
 
-    code = input("\033[93mEnter the verification code you received: \033[0m").strip()
+    # Debug output: show how the code was sent
+    code_type = result.get("code_type", "Unknown")
+    print("\033[96m[DEBUG] Code delivery type: {}\033[0m".format(code_type))
+    print("\033[93mNote: The code is usually sent to your Telegram app first.\033[0m")
+    print("\033[93m      Check the Telegram app on your other devices.\033[0m")
+
+    code = input("\033[93mEnter the verification code (or press Enter to resend via SMS): \033[0m").strip()
+
+    # If user pressed Enter without code, resend via SMS
     if not code:
-        print("\033[91mError: Verification code cannot be empty.\033[0m")
-        sys.exit(1)
+        print("\033[96mResending code via SMS (force_sms=True)...\033[0m")
+        try:
+            result = await auth.resend_code(phone, api_id, api_hash)
+            phone_code_hash = result["phone_code_hash"]
+            code_type = result.get("code_type", "Unknown")
+            print("\033[96m[DEBUG] Resend code delivery type: {}\033[0m".format(code_type))
+            print("\033[92mCode resent! Check your SMS messages.\033[0m")
+        except Exception as e:
+            error_msg = str(e)
+            if "FloodWait" in error_msg or "FLOOD" in error_msg:
+                print("\033[91mError: Too many attempts. Please wait and try again later.\033[0m")
+                sys.exit(1)
+            else:
+                print("\033[91mError resending code: {}\033[0m".format(error_msg))
+                sys.exit(1)
+
+        code = input("\033[93mEnter the verification code from SMS: \033[0m").strip()
+        if not code:
+            print("\033[91mError: Verification code cannot be empty.\033[0m")
+            sys.exit(1)
 
     try:
         sign_in_result = await auth.sign_in(phone, code, phone_code_hash)
