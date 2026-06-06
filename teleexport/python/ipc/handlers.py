@@ -89,6 +89,16 @@ def register_handlers(server: IPCServer, app):
         password = params["password"]
         return await auth_manager.sign_in_2fa(password)
 
+    async def auth_resend_code(params, msg_id):
+        phone = params["phone"]
+        api_id = params.get("api_id") or _settings.get("api_id")
+        api_hash = params.get("api_hash") or _settings.get("api_hash")
+        if not api_id or not api_hash:
+            return {"error": "api_id and api_hash required"}
+        result = await auth_manager.resend_code(phone, int(api_id), str(api_hash))
+        server.send_event("auth.code_resent", {"phone": phone, "code_type": result.get("code_type")})
+        return result
+
     async def auth_logout(params, msg_id):
         return await auth_manager.logout()
 
@@ -230,6 +240,7 @@ def register_handlers(server: IPCServer, app):
     # Register all handlers
     server.register("auth.check_session", auth_check_session)
     server.register("auth.send_code", auth_send_code)
+    server.register("auth.resend_code", auth_resend_code)
     server.register("auth.sign_in", auth_sign_in)
     server.register("auth.check_2fa", auth_check_2fa)
     server.register("auth.sign_in_2fa", auth_sign_in_2fa)

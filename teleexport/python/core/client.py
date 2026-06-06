@@ -1,6 +1,7 @@
 """TeleExport Telegram client wrapper around Telethon."""
 from pathlib import Path
 from telethon import TelegramClient
+from telethon.tl.functions.auth import ResendCodeRequest
 from .config import SESSION_DIR
 
 
@@ -42,24 +43,34 @@ class TeleExportClient:
         self._connected = True
         return await self.client.is_user_authorized()
 
-    async def send_code(self, phone: str, force_sms: bool = False):
+    async def send_code(self, phone: str):
         """Send verification code to phone number.
 
         Args:
             phone: Phone number with country code.
-            force_sms: If True, forces SMS delivery (only works as resend
-                       after a previous send_code_request call).
         """
-        return await self.client.send_code_request(phone, force_sms=force_sms)
+        return await self.client.send_code_request(phone)
 
-    async def resend_code(self, phone: str):
-        """Resend verification code via SMS using force_sms=True.
+    async def resend_code_sms(self, phone: str, phone_code_hash: str):
+        """Resend verification code via SMS using the raw ResendCodeRequest API.
 
-        This MUST be called after an initial send_code() call. Telethon
-        requires a prior send_code_request to have been made for force_sms
-        to trigger SMS delivery.
+        This uses the Telethon raw API to trigger the next available delivery
+        method (usually SMS). The deprecated force_sms parameter no longer works
+        in newer Telethon versions, so we use ResendCodeRequest directly.
+
+        MUST be called after an initial send_code() call on the same connection.
+
+        Args:
+            phone: Phone number with country code.
+            phone_code_hash: The phone_code_hash from the initial send_code result.
+
+        Returns:
+            SentCode object with the new delivery type info.
         """
-        return await self.client.send_code_request(phone, force_sms=True)
+        return await self.client(ResendCodeRequest(
+            phone_number=phone,
+            phone_code_hash=phone_code_hash,
+        ))
 
     async def sign_in(self, phone: str, code: str, phone_code_hash: str):
         """Sign in with the verification code."""

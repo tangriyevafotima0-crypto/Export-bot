@@ -25,6 +25,11 @@ def mock_client():
         timeout=60,
         type=MagicMock(__class__=type("SentCodeTypeSms", (), {})),
     ))
+    client.resend_code_sms = AsyncMock(return_value=MagicMock(
+        phone_code_hash="abc456",
+        timeout=60,
+        type=MagicMock(__class__=type("SentCodeTypeSms", (), {})),
+    ))
     client.sign_in = AsyncMock(return_value=MagicMock(
         id=12345,
         first_name="Test",
@@ -92,7 +97,7 @@ class TestAuthFlowTransitions:
         assert result["phone_code_hash"] == "abc123"
         assert result["timeout"] == 60
         # client.client is already set (not None), so init/connect are skipped
-        mock_client.send_code.assert_awaited_once_with("1234567890", force_sms=False)
+        mock_client.send_code.assert_awaited_once_with("1234567890")
 
     @pytest.mark.asyncio
     async def test_send_code_initializes_when_client_is_none(self, mock_client):

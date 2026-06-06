@@ -9,7 +9,8 @@ IMPORTANT: This script fixes the auth code delivery issue by:
 1. Cleaning session files BEFORE creating the client (not after)
 2. Using correct session path (without .session extension - Telethon adds it)
 3. Single initialization path - no double init/connect
-4. Proper force_sms handling (only as resend after first send_code)
+4. Using raw ResendCodeRequest API for SMS (force_sms is deprecated and broken)
+5. Both app and SMS delivery are attempted - code is sent to BOTH methods
 """
 import asyncio
 import json
@@ -82,6 +83,11 @@ async def interactive_auth(api_id: int, api_hash: str):
 
     This creates a fresh client after cleaning sessions, performs authentication,
     and returns the connected+authenticated client.
+
+    Auth code delivery strategy:
+    1. First send_code -> code goes to Telegram app (SentCodeTypeApp)
+    2. Immediately offer to resend via SMS using raw ResendCodeRequest API
+    3. If still not received, offer another resend (may trigger phone call)
     """
     print("\n\033[96m=== TeleExport Authentication ===\033[0m")
     print("No active session found. Starting authentication...\n")
@@ -101,31 +107,31 @@ async def interactive_auth(api_id: int, api_hash: str):
     auth = AuthManager(client)
 
     # Step 4: Get phone number
-    phone = input("\033[93mEnter your phone number (with country code, e.g. +1234567890): \033[0m").strip()
+    phone = input("\033[93mTelefon raqamingizni kiriting (masalan +998901234567): \033[0m").strip()
     if not phone:
-        print("\033[91mError: Phone number cannot be empty.\033[0m")
+        print("\033[91mXato: Telefon raqami bo'sh bo'lishi mumkin emas.\033[0m")
         await client.disconnect()
         sys.exit(1)
 
     # Step 5: Send verification code (first call - goes to Telegram app)
-    print("\033[96mSending verification code to {}...\033[0m".format(phone))
+    print("\033[96mVerifikatsiya kodi yuborilmoqda {}...\033[0m".format(phone))
     try:
         result = await auth.send_code(phone, api_id, api_hash)
     except Exception as e:
         error_msg = str(e)
         if "FloodWait" in error_msg or "FLOOD" in error_msg:
-            print("\033[91mError: Too many attempts. Telegram is rate-limiting you.\033[0m")
-            print("\033[93mPlease wait a few minutes (or up to 24h) and try again.\033[0m")
+            print("\033[91mXato: Juda ko'p urinish. Telegram cheklov qo'ydi.\033[0m")
+            print("\033[93mBir necha daqiqa (yoki 24 soatgacha) kuting va qayta urinib ko'ring.\033[0m")
         elif "PhoneNumberInvalid" in error_msg or "PHONE_NUMBER_INVALID" in error_msg:
-            print("\033[91mError: Invalid phone number format.\033[0m")
-            print("\033[93mMake sure to include the country code (e.g. +998 for UZ, +1 for US).\033[0m")
+            print("\033[91mXato: Telefon raqami formati noto'g'ri.\033[0m")
+            print("\033[93mDavlat kodini kiritganingizga ishonch hosil qiling (masalan +998).\033[0m")
         elif "PhoneNumberBanned" in error_msg or "PHONE_NUMBER_BANNED" in error_msg:
-            print("\033[91mError: This phone number has been banned by Telegram.\033[0m")
+            print("\033[91mXato: Bu telefon raqami Telegram tomonidan bloklangan.\033[0m")
         elif "ApiIdInvalid" in error_msg or "API_ID_INVALID" in error_msg:
-            print("\033[91mError: Invalid api_id or api_hash combination.\033[0m")
-            print("\033[93mDouble-check your credentials at https://my.telegram.org\033[0m")
+            print("\033[91mXato: api_id yoki api_hash noto'g'ri.\033[0m")
+            print("\033[93mhttps://my.telegram.org da tekshiring.\033[0m")
         else:
-            print("\033[91mError sending code: {}\033[0m".format(error_msg))
+            print("\033[91mKod yuborishda xato: {}\033[0m".format(error_msg))
             traceback.print_exc()
         await client.disconnect()
         sys.exit(1)
@@ -135,75 +141,104 @@ async def interactive_auth(api_id: int, api_hash: str):
     # Show debug info about how code was delivered
     code_type = result.get("code_type", "Unknown")
     timeout = result.get("timeout", 60)
-    print("\033[92m[OK] Verification code sent successfully!\033[0m")
-    print("\033[96m[DEBUG] Code delivery method: {}\033[0m".format(code_type))
-    print("\033[96m[DEBUG] Code timeout: {} seconds\033[0m".format(timeout))
+    print("\033[92m[OK] Kod yuborildi!\033[0m")
+    print("\033[96m[DEBUG] Yetkazish usuli: {}\033[0m".format(code_type))
+    print("\033[96m[DEBUG] Kod muddati: {} soniya\033[0m".format(timeout))
     print("\033[96m[DEBUG] Phone code hash: {}...\033[0m".format(phone_code_hash[:8]))
     print("")
-    print("\033[93mThe code was sent to your Telegram app (check all logged-in devices).\033[0m")
-    print("\033[93mIf you don't see it, press Enter to resend via SMS.\033[0m")
+
+    # Step 6: Immediately offer SMS resend since app delivery often fails
+    print("\033[93mKod ilovaga yuborildi. Agar kelmasa, SMS orqali yuboramizmi?\033[0m")
+    print("\033[93m[y/Enter] = SMS orqali qayta yuborish | [kodni kiriting] = davom etish\033[0m")
     print("")
 
-    code = input("\033[93mEnter the verification code (or press Enter to resend via SMS): \033[0m").strip()
+    code = input("\033[93mKodni kiriting yoki SMS uchun Enter bosing: \033[0m").strip()
 
-    # Step 6: If user pressed Enter without code, resend via SMS
-    if not code:
-        print("\033[96mResending code via SMS...\033[0m")
+    # If user pressed Enter or typed 'y' - resend via SMS using raw API
+    if not code or code.lower() in ("y", "yes", "ha", "sms"):
+        print("\n\033[96mSMS orqali qayta yuborilmoqda (ResendCodeRequest)...\033[0m")
         try:
-            # resend_code uses force_sms=True internally - this works because
-            # we already made an initial send_code_request on this connection
             result = await auth.resend_code(phone, api_id, api_hash)
             phone_code_hash = result["phone_code_hash"]
             code_type = result.get("code_type", "Unknown")
-            print("\033[92m[OK] Code resent via SMS!\033[0m")
-            print("\033[96m[DEBUG] Resend delivery method: {}\033[0m".format(code_type))
-            print("\033[93mCheck your SMS inbox for the code.\033[0m")
+            print("\033[92m[OK] Kod SMS orqali qayta yuborildi!\033[0m")
+            print("\033[96m[DEBUG] Yangi yetkazish usuli: {}\033[0m".format(code_type))
+            print("\033[93mSMS xabarlarni tekshiring.\033[0m")
+            print("")
         except Exception as e:
             error_msg = str(e)
             if "FloodWait" in error_msg or "FLOOD" in error_msg:
-                print("\033[91mError: Too many attempts. Please wait and try again later.\033[0m")
+                print("\033[91mXato: Juda ko'p urinish. Kuting va qayta urinib ko'ring.\033[0m")
                 await client.disconnect()
                 sys.exit(1)
             else:
-                print("\033[91mError resending code: {}\033[0m".format(error_msg))
-                print("\033[93mTry running the script again.\033[0m")
+                print("\033[91mQayta yuborishda xato: {}\033[0m".format(error_msg))
+                print("\033[93mSkriptni qaytadan ishga tushirib ko'ring.\033[0m")
                 await client.disconnect()
                 sys.exit(1)
 
-        code = input("\033[93mEnter the verification code from SMS: \033[0m").strip()
-        if not code:
-            print("\033[91mError: Verification code cannot be empty.\033[0m")
-            await client.disconnect()
-            sys.exit(1)
+        code = input("\033[93mSMS dan kelgan kodni kiriting (yoki qo'ng'iroq uchun Enter): \033[0m").strip()
+
+        # If still no code, try one more resend (may trigger phone call)
+        if not code or code.lower() in ("y", "yes", "ha", "call"):
+            print("\n\033[96mQo'ng'iroq orqali yuborilmoqda (ikkinchi ResendCodeRequest)...\033[0m")
+            try:
+                result = await auth.resend_code(phone, api_id, api_hash)
+                phone_code_hash = result["phone_code_hash"]
+                code_type = result.get("code_type", "Unknown")
+                print("\033[92m[OK] Kod qayta yuborildi!\033[0m")
+                print("\033[96m[DEBUG] Yetkazish usuli: {}\033[0m".format(code_type))
+                if "Call" in code_type:
+                    print("\033[93mTelegram qo'ng'iroq qiladi, kodni eshiting.\033[0m")
+                else:
+                    print("\033[93mKodni tekshiring ({}).\033[0m".format(code_type))
+                print("")
+            except Exception as e:
+                error_msg = str(e)
+                if "FloodWait" in error_msg or "FLOOD" in error_msg:
+                    print("\033[91mXato: Juda ko'p urinish. Kuting.\033[0m")
+                    await client.disconnect()
+                    sys.exit(1)
+                else:
+                    print("\033[91mQayta yuborishda xato: {}\033[0m".format(error_msg))
+                    print("\033[93mSkriptni qaytadan ishga tushiring.\033[0m")
+                    await client.disconnect()
+                    sys.exit(1)
+
+            code = input("\033[93mKodni kiriting: \033[0m").strip()
+            if not code:
+                print("\033[91mXato: Verifikatsiya kodi bo'sh bo'lishi mumkin emas.\033[0m")
+                await client.disconnect()
+                sys.exit(1)
 
     # Step 7: Sign in with the code
-    print("\033[96mSigning in...\033[0m")
+    print("\033[96mTizimga kirilmoqda...\033[0m")
     try:
         sign_in_result = await auth.sign_in(phone, code, phone_code_hash)
     except Exception as e:
         error_msg = str(e)
         if "PhoneCodeExpired" in error_msg or "PHONE_CODE_EXPIRED" in error_msg:
-            print("\033[91mError: Verification code has expired.\033[0m")
-            print("\033[93mPlease re-run this script to request a new code.\033[0m")
+            print("\033[91mXato: Verifikatsiya kodi muddati tugagan.\033[0m")
+            print("\033[93mYangi kod olish uchun skriptni qayta ishga tushiring.\033[0m")
         elif "PhoneCodeInvalid" in error_msg or "PHONE_CODE_INVALID" in error_msg:
-            print("\033[91mError: Incorrect verification code.\033[0m")
-            print("\033[93mPlease re-run this script and enter the correct code.\033[0m")
+            print("\033[91mXato: Verifikatsiya kodi noto'g'ri.\033[0m")
+            print("\033[93mSkriptni qayta ishga tushiring va to'g'ri kodni kiriting.\033[0m")
         elif "SessionPasswordNeeded" in error_msg or "Two" in error_msg:
             # 2FA needed - handle below
             sign_in_result = {"success": False, "requires_2fa": True}
         else:
-            print("\033[91mSign-in error: {}\033[0m".format(error_msg))
-            print("\033[93mPlease re-run this script to try again.\033[0m")
+            print("\033[91mTizimga kirishda xato: {}\033[0m".format(error_msg))
+            print("\033[93mSkriptni qayta ishga tushiring.\033[0m")
             await client.disconnect()
             sys.exit(1)
 
     # Step 8: Handle 2FA if needed
     if not sign_in_result.get("success"):
         if sign_in_result.get("requires_2fa"):
-            print("\033[93mTwo-factor authentication required.\033[0m")
-            password = input("\033[93mEnter your 2FA password: \033[0m").strip()
+            print("\033[93mIkki bosqichli autentifikatsiya kerak.\033[0m")
+            password = input("\033[93m2FA parolni kiriting: \033[0m").strip()
             if not password:
-                print("\033[91mError: 2FA password cannot be empty.\033[0m")
+                print("\033[91mXato: 2FA parol bo'sh bo'lishi mumkin emas.\033[0m")
                 await client.disconnect()
                 sys.exit(1)
             try:
@@ -211,22 +246,22 @@ async def interactive_auth(api_id: int, api_hash: str):
             except Exception as e:
                 error_msg = str(e)
                 if "PasswordHashInvalid" in error_msg or "PASSWORD_HASH_INVALID" in error_msg:
-                    print("\033[91mError: Incorrect 2FA password.\033[0m")
-                    print("\033[93mPlease re-run this script and enter the correct password.\033[0m")
+                    print("\033[91mXato: 2FA parol noto'g'ri.\033[0m")
+                    print("\033[93mSkriptni qayta ishga tushiring.\033[0m")
                 else:
-                    print("\033[91m2FA error: {}\033[0m".format(error_msg))
+                    print("\033[91m2FA xato: {}\033[0m".format(error_msg))
                 await client.disconnect()
                 sys.exit(1)
         else:
-            print("\033[91mError: Sign-in failed.\033[0m")
+            print("\033[91mXato: Tizimga kirish muvaffaqiyatsiz.\033[0m")
             await client.disconnect()
             sys.exit(1)
 
     # Step 9: Verify success
     if sign_in_result.get("success"):
         user = sign_in_result["user"]
-        print("\n\033[92mAuthenticated successfully!\033[0m")
-        print("  User: {} {}".format(
+        print("\n\033[92mMuvaffaqiyatli autentifikatsiya!\033[0m")
+        print("  Foydalanuvchi: {} {}".format(
             user.get("first_name", ""),
             user.get("last_name", "") or ""
         ).strip())
@@ -234,7 +269,7 @@ async def interactive_auth(api_id: int, api_hash: str):
             print("  Username: @{}".format(user["username"]))
         print("")
     else:
-        print("\033[91mAuthentication failed.\033[0m")
+        print("\033[91mAutentifikatsiya muvaffaqiyatsiz.\033[0m")
         await client.disconnect()
         sys.exit(1)
 
