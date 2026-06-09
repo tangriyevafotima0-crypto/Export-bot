@@ -1,0 +1,38 @@
+{
+  "id": "FEAT-002",
+  "type": "feat",
+  "description": "Implement the userbot/ module (Telethon-based monitoring: client, story tracker, online tracker, group monitor, message tracker, contact analyzer) and the intelligence/ module (pattern engine, ML scorer with scikit-learn local algorithms, behavior profiler, timeline builder, predictor, anomaly detector). No external AI APIs - all intelligence uses local statistical methods and scikit-learn.",
+  "status": "pending",
+  "steps": [
+    "Create /projects/sandbox/Export-bot/anti_stalker_pro/userbot/client.py with TelethonClient singleton class: async connect/disconnect, session management at data/sessions/, auto-reconnect logic, FloodWaitError handling with asyncio.sleep(e.seconds), rate limiting (1s between requests).",
+    "Create /projects/sandbox/Export-bot/anti_stalker_pro/userbot/story_tracker.py with StoryTracker class: check_all_stories() iterates tracked users, fetches their stories via Telethon, records new viewers in StoryView table, triggers alerts when suspicious viewers detected. Include get_story_viewers(user_id) and get_my_story_viewers() methods.",
+    "Create /projects/sandbox/Export-bot/anti_stalker_pro/userbot/online_tracker.py with OnlineTracker class: check_all_targets() checks online status of tracked users via GetFullUser, records OnlineEvent (online/offline with timestamps), calculates duration_seconds when going offline. Rate-limit aware.",
+    "Create /projects/sandbox/Export-bot/anti_stalker_pro/userbot/group_monitor.py with GroupMonitor class: scan_mutual_groups(user_id) finds shared groups, monitor_group_activity(group_id) watches for reactions/replies to my messages, detect_group_stalking_patterns() identifies users who consistently interact with me in groups.",
+    "Create /projects/sandbox/Export-bot/anti_stalker_pro/userbot/message_tracker.py with MessageTracker class: track_read_receipts() monitors who reads messages without replying, detect_forward_patterns() identifies who forwards my content, calculate_read_without_reply_ratio(user_id) returns the ratio for scoring.",
+    "Create /projects/sandbox/Export-bot/anti_stalker_pro/userbot/contact_analyzer.py with ContactAnalyzer class: find_all_mutual_contacts() compares contacts, build_social_graph(user_id) returns JSON graph data for D3.js visualization, check_if_saved_my_number(user_id) uses Telethon to check contact status.",
+    "Create /projects/sandbox/Export-bot/anti_stalker_pro/intelligence/pattern_engine.py with PatternEngine class: deep_analysis() runs comprehensive pattern detection across all tracked users, detect_patterns(user_id) identifies specific patterns (NIGHT_STALKER, IMMEDIATE_RESPONDER, DAILY_CHECKER, SILENT_OBSERVER), stores results in SuspicionPattern table.",
+    "Create /projects/sandbox/Export-bot/anti_stalker_pro/intelligence/ml_scorer.py with StalkerScorer class: compute 8 features (story_view_frequency, story_view_consistency, reaction_speed_score, view_timing_variance, online_during_my_active_hours, mutual_group_activity, read_without_reply_ratio, profile_content_engagement), apply weighted scoring formula (0.20, 0.25, 0.20, 0.10, 0.10, 0.05, 0.05, 0.05), classify into NORMAL/CURIOUS/SUSPICIOUS/STALKER. Methods: update_score(user_id), update_all_scores(), get_score_history(user_id, days=30), explain_score(user_id). Use numpy for calculations and scikit-learn MinMaxScaler for normalization.",
+    "Create /projects/sandbox/Export-bot/anti_stalker_pro/intelligence/behavior_profiler.py with BehaviorProfiler class: build_heatmap(user_id) returns 7x24 JSON matrix of activity intensity, detect_obsession_patterns(user_id) identifies NIGHT_STALKER/IMMEDIATE_RESPONDER/DAILY_CHECKER/SILENT_OBSERVER patterns with confidence scores, get_personality_estimate(user_id) returns estimated traits based on behavior timing.",
+    "Create /projects/sandbox/Export-bot/anti_stalker_pro/intelligence/timeline_builder.py with TimelineBuilder class: build_timeline(user_id, days=30) constructs chronological event list from all data sources, format_for_dashboard(timeline) formats for Chart.js visualization, get_daily_summary(user_id, date) returns single-day detail.",
+    "Create /projects/sandbox/Export-bot/anti_stalker_pro/intelligence/predictor.py with Predictor class: predict_next_visit(user_id) uses last 14 days of data to predict next activity time with confidence %, predict_online_time(user_id) predicts if user will be online in next 2 hours based on weekly patterns, will_view_story(user_id, posted_at) predicts probability of viewing a story. Use pandas for time series and numpy for statistical predictions (no external AI).",
+    "Create /projects/sandbox/Export-bot/anti_stalker_pro/intelligence/anomaly_detector.py with AnomalyDetector class: run() checks all tracked users for anomalous behavior spikes, detect_sudden_interest(user_id) flags when someone dramatically increases monitoring, detect_schedule_change(user_id) notices when patterns shift. Use scikit-learn IsolationForest for anomaly detection on activity features."
+  ],
+  "acceptance_criteria": [
+    "All userbot/ module files are complete with full implementations (no TODOs or placeholders)",
+    "All intelligence/ module files are complete with local ML algorithms using scikit-learn, numpy, pandas",
+    "ml_scorer.py implements all 8 features and weighted scoring without any external AI API calls",
+    "predictor.py uses only local statistical methods (pandas time series, numpy) for predictions",
+    "anomaly_detector.py uses scikit-learn IsolationForest for anomaly detection",
+    "All functions have type hints and docstrings",
+    "All Telegram API calls include FloodWaitError handling and rate limiting",
+    "Running python -c imports for each module succeeds"
+  ],
+  "verification": [
+    "cd /projects/sandbox/Export-bot/anti_stalker_pro && python -c \"from userbot.client import TelethonClient; from userbot.story_tracker import StoryTracker; from userbot.online_tracker import OnlineTracker; print('Userbot OK')\"",
+    "cd /projects/sandbox/Export-bot/anti_stalker_pro && python -c \"from intelligence.ml_scorer import StalkerScorer; from intelligence.pattern_engine import PatternEngine; from intelligence.predictor import Predictor; from intelligence.anomaly_detector import AnomalyDetector; print('Intelligence OK')\"",
+    "cd /projects/sandbox/Export-bot/anti_stalker_pro && python -c \"from intelligence.behavior_profiler import BehaviorProfiler; from intelligence.timeline_builder import TimelineBuilder; print('Profiler OK')\"",
+    "cd /projects/sandbox/Export-bot/anti_stalker_pro && python -m py_compile userbot/client.py && python -m py_compile intelligence/ml_scorer.py && echo 'Compile OK'"
+  ],
+  "blocked_reason": null,
+  "findings": ""
+}

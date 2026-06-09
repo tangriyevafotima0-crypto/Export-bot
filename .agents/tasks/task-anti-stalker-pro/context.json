@@ -1,0 +1,20 @@
+{
+  "project_type": "Python async monitoring platform with Telegram userbot, notification bot, Flask trap server, FastAPI dashboard",
+  "language": "Python 3.11+",
+  "build_system": "pip with requirements.txt, Docker for production deployment",
+  "test_framework": "pytest with pytest-asyncio for async tests",
+  "build_command": "cd /projects/sandbox/Export-bot/anti_stalker_pro && pip install -r requirements.txt",
+  "test_command": "cd /projects/sandbox/Export-bot/anti_stalker_pro && python -m pytest tests/ -v",
+  "verification_instructions": "1. Install requirements.txt successfully. 2. Run pytest tests/. 3. Verify all imports resolve correctly with python -c 'from core.config import Settings'. 4. Run python -m py_compile main.py on all .py files.",
+  "snapshot_or_generated_files": null,
+  "setup_instructions": "1. cd /projects/sandbox/Export-bot/anti_stalker_pro. 2. pip install -r requirements.txt. 3. Copy .env.example to .env and fill in values. 4. python main.py",
+  "environment_constraints": "OPEN_INTERNET - full network access. Python 3.11+ available via pyenv. Can install any pip packages.",
+  "contribution_requirements": "Follow the existing deploy.sh pattern from teleexport for the deployment script. All credentials via .env file. Type hints on all functions. Full docstrings. No TODO or placeholder comments.",
+  "key_patterns": "Existing teleexport uses: Telethon for Telegram MTProto, pathlib for paths, async/await patterns, systemd for service management. New bot uses Pydantic BaseSettings for config, SQLAlchemy 2.0 async ORM, APScheduler for task scheduling.",
+  "relevant_files": [
+    "/projects/sandbox/Export-bot/teleexport/deploy.sh",
+    "/projects/sandbox/Export-bot/teleexport/python/core/client.py",
+    "/projects/sandbox/Export-bot/teleexport/python/core/config.py"
+  ],
+  "directory_structure": "anti_stalker_pro/ at /projects/sandbox/Export-bot/anti_stalker_pro/ with subdirectories: core/, userbot/, intelligence/, trapnet/, bot/, dashboard/, scheduler/, storage/, tests/"
+}

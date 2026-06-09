@@ -1,0 +1,36 @@
+{
+  "id": "FEAT-001",
+  "type": "feat",
+  "description": "Create the project foundation: directory structure, requirements.txt, .env.example, core/ module (config.py with Pydantic Settings, database.py with SQLAlchemy async, models.py with all DB models, exceptions.py, logger.py), and the main.py entry point with full async orchestration of all services.",
+  "status": "in_progress",
+  "steps": [
+    "Create directory structure at /projects/sandbox/Export-bot/anti_stalker_pro/ with all subdirectories: core/, userbot/, intelligence/, trapnet/, bot/, dashboard/, dashboard/routes/, dashboard/static/, scheduler/, storage/, tests/. Add __init__.py to each Python package.",
+    "Create /projects/sandbox/Export-bot/anti_stalker_pro/requirements.txt with all dependencies: telethon>=1.36, python-telegram-bot>=21.0, fastapi>=0.115, uvicorn>=0.30, sqlalchemy[asyncio]>=2.0, aiosqlite>=0.20, pydantic>=2.0, pydantic-settings>=2.0, scikit-learn>=1.5, numpy>=1.26, pandas>=2.2, apscheduler>=3.10, flask>=3.0, geoip2>=4.8, user-agents>=2.2, reportlab>=4.2, jinja2>=3.1, python-jose[cryptography]>=3.3, passlib[bcrypt]>=1.7, python-dotenv>=1.0, aiofiles>=24.1, websockets>=12.0, httpx>=0.27",
+    "Create /projects/sandbox/Export-bot/anti_stalker_pro/.env.example with all required variables: TELEGRAM_API_ID, TELEGRAM_API_HASH, TELEGRAM_PHONE, BOT_TOKEN, MY_TELEGRAM_ID, DASHBOARD_SECRET_KEY, TRACKING_REDIRECT_URL, plus defaults for intervals/thresholds/ports",
+    "Create /projects/sandbox/Export-bot/anti_stalker_pro/core/config.py with Pydantic BaseSettings class containing all settings as specified in the architecture (Telegram creds, intervals, thresholds, Flask config, Dashboard config, Database URL). Use env_file='.env'.",
+    "Create /projects/sandbox/Export-bot/anti_stalker_pro/core/database.py with async SQLAlchemy engine setup using create_async_engine, AsyncSession factory, Base declarative class, and init_db() coroutine that creates all tables.",
+    "Create /projects/sandbox/Export-bot/anti_stalker_pro/core/models.py with all SQLAlchemy 2.0 models: TrackedUser, StoryView, OnlineEvent, SuspicionPattern, BioLinkVisit, DailyReport, Alert. Use Mapped[] type annotations, relationship()s, and JSON columns where specified.",
+    "Create /projects/sandbox/Export-bot/anti_stalker_pro/core/exceptions.py with custom exceptions: StalkerBotError (base), DatabaseError, TelegramConnectionError, ConfigurationError, RateLimitError, AuthenticationError.",
+    "Create /projects/sandbox/Export-bot/anti_stalker_pro/core/logger.py with structured logging setup using Python logging module. Create get_logger(name) function that returns configured logger with both console (colored) and file output (to data/logs/).",
+    "Create /projects/sandbox/Export-bot/anti_stalker_pro/main.py with full async main() function that: sets up logging, initializes database, connects Telethon userbot client, starts APScheduler, launches Flask trap server in thread executor, launches FastAPI dashboard via uvicorn, starts Telegram bot polling, sends startup notification, runs Telethon until disconnected. Include proper exception handling for ConnectionError, FloodWaitError, KeyboardInterrupt with clean shutdown."
+  ],
+  "acceptance_criteria": [
+    "All directories and __init__.py files exist in the correct structure",
+    "requirements.txt contains all specified dependencies",
+    ".env.example contains all required environment variables with clear comments",
+    "core/config.py defines Settings class with all fields matching the architecture spec",
+    "core/models.py defines all 7 model classes with proper SQLAlchemy 2.0 syntax (Mapped[], mapped_column())",
+    "core/database.py provides async session management and table creation",
+    "main.py orchestrates all services and handles errors gracefully",
+    "Running 'python -c \"import core.config; import core.models; import core.database\"' succeeds after pip install"
+  ],
+  "verification": [
+    "cd /projects/sandbox/Export-bot/anti_stalker_pro && pip install -r requirements.txt",
+    "cd /projects/sandbox/Export-bot/anti_stalker_pro && python -c \"from core.config import Settings; print('Config OK')\"",
+    "cd /projects/sandbox/Export-bot/anti_stalker_pro && python -c \"from core.models import TrackedUser, StoryView, OnlineEvent, SuspicionPattern, BioLinkVisit, DailyReport, Alert; print('Models OK')\"",
+    "cd /projects/sandbox/Export-bot/anti_stalker_pro && python -c \"from core.database import init_db, get_session; print('Database OK')\"",
+    "cd /projects/sandbox/Export-bot/anti_stalker_pro && python -m py_compile main.py && echo 'Main OK'"
+  ],
+  "blocked_reason": null,
+  "findings": ""
+}

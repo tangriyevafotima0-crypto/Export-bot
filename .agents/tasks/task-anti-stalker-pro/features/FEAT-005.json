@@ -1,0 +1,33 @@
+{
+  "id": "FEAT-005",
+  "type": "feat",
+  "description": "Create the deploy.sh script for automated server deployment of anti_stalker_pro, following the exact same pattern as teleexport/deploy.sh. Prompts for all 7 credentials with validation, installs system deps, creates Python venv, installs pip dependencies from requirements.txt, writes .env config, creates systemd service, and handles errors gracefully.",
+  "status": "pending",
+  "steps": [
+    "Create /projects/sandbox/Export-bot/anti_stalker_pro/deploy.sh following the teleexport/deploy.sh pattern exactly. The script must: (1) Use set -eo pipefail and color-coded logging helpers (info/success/warn/error), (2) Check for sudo and detect REAL_USER/REAL_HOME, (3) Print a banner for Anti-Stalker Intelligence System, (4) Clean old installation: stop/disable/remove anti_stalker.service, remove old venv at ~/.anti_stalker/venv, remove old config at ~/.anti_stalker/config, remove old data sessions, (5) System checks: verify Ubuntu, check RAM >= 1GB, check disk >= 2GB free, (6) Install system deps via apt-get (software-properties-common, build-essential, curl), (7) Install Python 3.11 via deadsnakes PPA if not present, (8) Ensure pip for Python 3.11, (9) Create venv at ~/.anti_stalker/venv, (10) Install dependencies from the project's requirements.txt into the venv, (11) Prompt for ALL 7 credentials with validation: TELEGRAM_API_ID (numeric), TELEGRAM_API_HASH (32 hex chars), TELEGRAM_PHONE (starts with +, 10-15 digits), BOT_TOKEN (contains colon, format NNN:XXXXX), MY_TELEGRAM_ID (numeric), DASHBOARD_SECRET_KEY (min 16 chars, generate random if empty), TRACKING_REDIRECT_URL (starts with http), (12) Write ~/.anti_stalker/config/.env with all credentials and default values for intervals/thresholds/ports, (13) Create data directories (data/logs, data/backups, data/reports, data/sessions), (14) Create systemd service at /etc/systemd/system/anti_stalker.service that runs main.py with the venv Python, with EnvironmentFile pointing to the .env, (15) Enable service, print auth instructions for Telethon first-run, (16) Print service management commands (start/stop/status/logs/restart), (17) Error trap with cleanup function and line-number error reporting."
+  ],
+  "acceptance_criteria": [
+    "deploy.sh follows the same structural pattern as teleexport/deploy.sh (banner, sudo check, clean, system checks, deps, Python, venv, credentials, config, systemd)",
+    "All 7 credentials are prompted with proper validation loops (while true; read; validate; break)",
+    "TELEGRAM_API_ID validates as numeric",
+    "TELEGRAM_API_HASH validates as exactly 32 hex characters",
+    "TELEGRAM_PHONE validates as starting with + and 10-15 digit format",
+    "BOT_TOKEN validates as containing colon in format NUMBER:HASH",
+    "MY_TELEGRAM_ID validates as numeric",
+    "DASHBOARD_SECRET_KEY has minimum 16 chars or auto-generates a random one",
+    "TRACKING_REDIRECT_URL validates as starting with http",
+    "The .env file is written with all credentials plus default config values",
+    "Systemd service file correctly references venv Python and project main.py",
+    "Script uses set -eo pipefail and has error trap with line numbers",
+    "Script is executable (chmod +x compatible)"
+  ],
+  "verification": [
+    "cd /projects/sandbox/Export-bot/anti_stalker_pro && bash -n deploy.sh && echo 'Syntax OK'",
+    "cd /projects/sandbox/Export-bot/anti_stalker_pro && grep -c 'read -rp' deploy.sh | xargs test 7 -le && echo 'All 7 prompts present'",
+    "cd /projects/sandbox/Export-bot/anti_stalker_pro && grep 'set -eo pipefail' deploy.sh && echo 'Error handling present'",
+    "cd /projects/sandbox/Export-bot/anti_stalker_pro && grep 'systemctl' deploy.sh && echo 'Systemd setup present'",
+    "cd /projects/sandbox/Export-bot/anti_stalker_pro && grep 'TELEGRAM_API_ID\\|TELEGRAM_API_HASH\\|TELEGRAM_PHONE\\|BOT_TOKEN\\|MY_TELEGRAM_ID\\|DASHBOARD_SECRET_KEY\\|TRACKING_REDIRECT_URL' deploy.sh | wc -l | xargs test 7 -le && echo 'All credentials handled'"
+  ],
+  "blocked_reason": null,
+  "findings": ""
+}

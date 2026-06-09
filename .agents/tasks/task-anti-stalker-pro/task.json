@@ -1,0 +1,7 @@
+{
+  "task_id": "task-anti-stalker-pro",
+  "task_description": "Create the complete Anti-Stalker Intelligence System - a professional monitoring platform with AI-powered pattern detection (using local ML via scikit-learn, no external AI APIs), web dashboard, multi-layer detection, Telegram userbot/bot, Flask trap server, and automated deploy script following the existing teleexport deploy.sh pattern.",
+  "status": "in_progress",
+  "feature_order": ["FEAT-001", "FEAT-002", "FEAT-003", "FEAT-004", "FEAT-005"],
+  "blocked_reason": null
+}
