@@ -38,6 +38,7 @@ def setup_bot_handlers(application: Application) -> None:
         application: The python-telegram-bot Application to configure.
     """
     application.add_handler(CommandHandler("start", cmd_start))
+    application.add_handler(CommandHandler("help", cmd_help))
     application.add_handler(CommandHandler("add", cmd_add))
     application.add_handler(CommandHandler("remove", cmd_remove))
     application.add_handler(CommandHandler("targets", cmd_targets))
@@ -114,6 +115,47 @@ async def cmd_start(
     await update.message.reply_text(
         text, parse_mode=ParseMode.HTML, reply_markup=main_menu_keyboard()
     )
+
+
+async def cmd_help(
+    update: Update, context: ContextTypes.DEFAULT_TYPE
+) -> None:
+    """Handle /help command - list all available commands.
+
+    Args:
+        update: The Telegram Update object.
+        context: The callback context.
+    """
+    if not _is_authorized(update):
+        await _unauthorized_response(update)
+        return
+
+    text = (
+        "📖 <b>Available Commands</b>\n\n"
+        "/start - Show welcome message and main menu\n"
+        "/help - Show this help message\n"
+        "/add - Add user to tracking list\n"
+        "/remove - Remove user from tracking\n"
+        "/targets - List all tracked users\n"
+        "/score - Show detailed suspicion score\n"
+        "/report - Show text summary report\n"
+        "/pdf - Generate PDF report\n"
+        "/heatmap - Show activity heatmap\n"
+        "/predict - Show behavior predictions\n"
+        "/top5 - Top 5 most suspicious users\n"
+        "/stories - Recent story view activity\n"
+        "/patterns - Detected behavior patterns\n"
+        "/alerts - Recent alerts\n"
+        "/settings - View current settings\n"
+        "/pause - Pause monitoring\n"
+        "/resume - Resume monitoring\n"
+        "/status - System status overview\n"
+        "/dashboard - Dashboard access info\n"
+        "/backup - Create database backup\n"
+        "/version - Show version information\n"
+    )
+
+    await update.message.reply_text(text, parse_mode=ParseMode.HTML)
 
 
 async def cmd_add(
@@ -330,8 +372,27 @@ async def cmd_score(
     try:
         user_id = int(target)
     except ValueError:
-        await update.message.reply_text("Please provide a numeric Telegram ID.")
-        return
+        from sqlalchemy import select
+        from core.database import get_session
+        from core.models import TrackedUser
+
+        username = target.lstrip("@")
+        async for session in get_session():
+            result = await session.execute(
+                select(TrackedUser).where(TrackedUser.username == username)
+            )
+            tracked = result.scalar_one_or_none()
+            if not tracked:
+                await update.message.reply_text(
+                    f"User {username} not found in tracking list."
+                )
+                return
+            if tracked.telegram_id is None:
+                await update.message.reply_text(
+                    f"User {username} doesn't have a resolved Telegram ID yet."
+                )
+                return
+            user_id = tracked.telegram_id
 
     scorer = StalkerScorer()
     explanation = await scorer.explain_score(user_id)
@@ -386,8 +447,23 @@ async def cmd_report(
     try:
         user_id = int(context.args[0])
     except ValueError:
-        await update.message.reply_text("Please provide a numeric Telegram ID.")
-        return
+        username = context.args[0].lstrip("@")
+        async for session in get_session():
+            result = await session.execute(
+                select(TrackedUser).where(TrackedUser.username == username)
+            )
+            tracked = result.scalar_one_or_none()
+            if not tracked:
+                await update.message.reply_text(
+                    f"User {username} not found in tracking list."
+                )
+                return
+            if tracked.telegram_id is None:
+                await update.message.reply_text(
+                    f"User {username} doesn't have a resolved Telegram ID yet."
+                )
+                return
+            user_id = tracked.telegram_id
 
     async for session in get_session():
         result = await session.execute(
@@ -599,8 +675,27 @@ async def cmd_predict(
     try:
         user_id = int(context.args[0])
     except ValueError:
-        await update.message.reply_text("Please provide a numeric Telegram ID.")
-        return
+        from sqlalchemy import select
+        from core.database import get_session
+        from core.models import TrackedUser
+
+        username = context.args[0].lstrip("@")
+        async for session in get_session():
+            result = await session.execute(
+                select(TrackedUser).where(TrackedUser.username == username)
+            )
+            tracked = result.scalar_one_or_none()
+            if not tracked:
+                await update.message.reply_text(
+                    f"User {username} not found in tracking list."
+                )
+                return
+            if tracked.telegram_id is None:
+                await update.message.reply_text(
+                    f"User {username} doesn't have a resolved Telegram ID yet."
+                )
+                return
+            user_id = tracked.telegram_id
 
     predictor = Predictor()
     visit_pred = await predictor.predict_next_visit(user_id)
