@@ -2,7 +2,7 @@
   "id": "FEAT-004",
   "type": "feat",
   "description": "Implement the dashboard/ module (FastAPI web server with JWT auth, WebSocket real-time updates, analytics/targets/reports/realtime API routes, and full HTML/JS/CSS frontend with Chart.js and Tailwind CSS), the storage/ module (in-memory cache, CSV/JSON/PDF export, automated backup), tests, Dockerfile, docker-compose.yml, and README.md.",
-  "status": "pending",
+  "status": "in_progress",
   "steps": [
     "Create /projects/sandbox/Export-bot/anti_stalker_pro/dashboard/app.py with FastAPI application: CORS middleware, static file serving, WebSocket endpoint at /ws/realtime, lifespan handler for startup/shutdown, mount all route modules.",
     "Create /projects/sandbox/Export-bot/anti_stalker_pro/dashboard/auth.py with JWT authentication: create_access_token(data), verify_token(token) using python-jose, get_current_user() dependency, login endpoint that verifies against DASHBOARD_SECRET_KEY. Token expires after JWT_EXPIRE_HOURS.",
