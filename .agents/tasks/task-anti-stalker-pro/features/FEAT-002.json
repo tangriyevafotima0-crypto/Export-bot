@@ -2,7 +2,7 @@
   "id": "FEAT-002",
   "type": "feat",
   "description": "Implement the userbot/ module (Telethon-based monitoring: client, story tracker, online tracker, group monitor, message tracker, contact analyzer) and the intelligence/ module (pattern engine, ML scorer with scikit-learn local algorithms, behavior profiler, timeline builder, predictor, anomaly detector). No external AI APIs - all intelligence uses local statistical methods and scikit-learn.",
-  "status": "pending",
+  "status": "in_progress",
   "steps": [
     "Create /projects/sandbox/Export-bot/anti_stalker_pro/userbot/client.py with TelethonClient singleton class: async connect/disconnect, session management at data/sessions/, auto-reconnect logic, FloodWaitError handling with asyncio.sleep(e.seconds), rate limiting (1s between requests).",
     "Create /projects/sandbox/Export-bot/anti_stalker_pro/userbot/story_tracker.py with StoryTracker class: check_all_stories() iterates tracked users, fetches their stories via Telethon, records new viewers in StoryView table, triggers alerts when suspicious viewers detected. Include get_story_viewers(user_id) and get_my_story_viewers() methods.",
