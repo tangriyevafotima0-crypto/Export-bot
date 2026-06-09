@@ -187,6 +187,13 @@ async def main() -> None:
             "Set DASHBOARD_SECRET_KEY in .env to a random secret value."
         )
 
+    # Warn if using insecure default admin password
+    if settings.admin_password == "admin":
+        logger.warning(
+            "SECURITY WARNING: Using default admin_password 'admin'. "
+            "Set ADMIN_PASSWORD in .env to a secure password."
+        )
+
     try:
         logger.info("Connecting Telethon userbot")
         await telethon_client.connect()

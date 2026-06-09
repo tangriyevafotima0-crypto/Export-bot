@@ -99,7 +99,7 @@ class Notifier:
                 text=text,
                 parse_mode=ParseMode.HTML,
             )
-            self._record_notification(alert.alert_type, alert.tracked_user_id)
+            self._record_notification(f"{alert.alert_type}_{alert.tracked_user_id}", alert.tracked_user_id)
             logger.info(f"Alert sent: {alert.alert_type} ({alert.severity})")
             return True
         except Exception as e:

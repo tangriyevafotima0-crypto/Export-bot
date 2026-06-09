@@ -18,7 +18,7 @@ class TrackedUser(Base):
     __tablename__ = "tracked_users"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    telegram_id: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+    telegram_id: Mapped[Optional[int]] = mapped_column(Integer, unique=True, nullable=True)
     username: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
     first_name: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
     last_name: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
