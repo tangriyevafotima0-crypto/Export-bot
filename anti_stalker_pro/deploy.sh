@@ -297,7 +297,7 @@ MY_TELEGRAM_ID=${MY_TELEGRAM_ID}
 # Dashboard Configuration
 DASHBOARD_SECRET_KEY=${DASHBOARD_SECRET_KEY}
 DASHBOARD_HOST=0.0.0.0
-DASHBOARD_PORT=8443
+DASHBOARD_PORT=8080
 
 # Trap Server Configuration
 TRACKING_REDIRECT_URL=${TRACKING_REDIRECT_URL}
@@ -404,7 +404,7 @@ echo -e "  Logs:    ${GREEN}sudo journalctl -u anti_stalker -f${NC}"
 echo -e "  Restart: ${GREEN}sudo systemctl restart anti_stalker${NC}"
 echo ""
 echo -e "${CYAN}Dashboard:${NC}"
-echo -e "  URL:     ${GREEN}http://your-server-ip:8443${NC}"
+echo -e "  URL:     ${GREEN}http://your-server-ip:8080${NC}"
 echo ""
 echo -e "${GREEN}Done! Your Anti-Stalker Intelligence System is ready.${NC}"
 echo ""

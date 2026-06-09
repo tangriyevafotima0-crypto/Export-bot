@@ -132,6 +132,15 @@ async def main() -> None:
     signal.signal(signal.SIGINT, handle_shutdown)
     signal.signal(signal.SIGTERM, handle_shutdown)
 
+    dashboard_task = None
+
+    # Warn if using insecure default secret key
+    if settings.dashboard_secret_key == "change-me-to-a-random-secret":
+        logger.warning(
+            "SECURITY WARNING: Using default dashboard_secret_key. "
+            "Set DASHBOARD_SECRET_KEY in .env to a random secret value."
+        )
+
     try:
         logger.info("Connecting Telethon userbot")
         await userbot.connect()
@@ -147,6 +156,9 @@ async def main() -> None:
 
         scheduler.start()
         logger.info("APScheduler started")
+
+        from trapnet.flask_server import set_main_loop
+        set_main_loop(loop)
 
         loop.run_in_executor(
             executor,

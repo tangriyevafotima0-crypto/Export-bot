@@ -43,9 +43,12 @@ def create_dashboard_app() -> FastAPI:
         lifespan=lifespan,
     )
 
+    settings = get_settings()
+    dashboard_origin = f"http://localhost:{settings.dashboard_port}"
+
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=["*"],
+        allow_origins=[dashboard_origin, "http://localhost:8080"],
         allow_credentials=True,
         allow_methods=["*"],
         allow_headers=["*"],

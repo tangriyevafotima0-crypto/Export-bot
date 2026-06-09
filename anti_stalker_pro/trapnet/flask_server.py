@@ -16,6 +16,22 @@ from core.logger import get_logger
 
 logger = get_logger(__name__)
 
+# Reference to the main asyncio event loop, set by the caller before starting Flask
+_main_loop: Optional[asyncio.AbstractEventLoop] = None
+
+
+def set_main_loop(loop: asyncio.AbstractEventLoop) -> None:
+    """Set the main asyncio event loop reference for async bridge calls.
+
+    Must be called from the main thread before starting the Flask server
+    in a background thread.
+
+    Args:
+        loop: The main asyncio event loop.
+    """
+    global _main_loop
+    _main_loop = loop
+
 
 def create_flask_app() -> Flask:
     """Create and configure the Flask trap server application.
@@ -143,7 +159,8 @@ def _store_visit_async(
     """Store a tracking link visit in the database asynchronously.
 
     Creates a BioLinkVisit record with the captured visitor information.
-    Runs the async database operation in a new event loop if needed.
+    Uses asyncio.run_coroutine_threadsafe to schedule work on the main
+    event loop from the Flask thread.
 
     Args:
         link_id: The tracking link code.
@@ -151,19 +168,16 @@ def _store_visit_async(
         user_agent: Visitor's User-Agent string.
         referer: Visitor's referer URL.
     """
-    try:
-        loop = asyncio.get_event_loop()
-        if loop.is_running():
-            loop.create_task(_store_visit(link_id, visitor_ip, user_agent, referer))
-        else:
-            asyncio.run(_store_visit(link_id, visitor_ip, user_agent, referer))
-    except RuntimeError:
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
-        loop.run_until_complete(
-            _store_visit(link_id, visitor_ip, user_agent, referer)
+    if _main_loop is not None and _main_loop.is_running():
+        asyncio.run_coroutine_threadsafe(
+            _store_visit(link_id, visitor_ip, user_agent, referer),
+            _main_loop,
         )
-        loop.close()
+    else:
+        logger.warning(
+            "Main event loop not available; visit storage skipped for %s",
+            link_id,
+        )
 
 
 async def _store_visit(
@@ -208,24 +222,24 @@ def _update_fingerprint_async(
 ) -> None:
     """Update a BioLinkVisit record with fingerprint data asynchronously.
 
+    Uses asyncio.run_coroutine_threadsafe to schedule work on the main
+    event loop from the Flask thread.
+
     Args:
         link_id: The tracking link code.
         visitor_ip: Visitor's IP address.
         device_info: Fingerprint data collected by JavaScript.
     """
-    try:
-        loop = asyncio.get_event_loop()
-        if loop.is_running():
-            loop.create_task(_update_fingerprint(link_id, visitor_ip, device_info))
-        else:
-            asyncio.run(_update_fingerprint(link_id, visitor_ip, device_info))
-    except RuntimeError:
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
-        loop.run_until_complete(
-            _update_fingerprint(link_id, visitor_ip, device_info)
+    if _main_loop is not None and _main_loop.is_running():
+        asyncio.run_coroutine_threadsafe(
+            _update_fingerprint(link_id, visitor_ip, device_info),
+            _main_loop,
         )
-        loop.close()
+    else:
+        logger.warning(
+            "Main event loop not available; fingerprint update skipped for %s",
+            link_id,
+        )
 
 
 async def _update_fingerprint(
