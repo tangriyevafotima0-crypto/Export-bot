@@ -72,6 +72,39 @@ class Settings(BaseSettings):
         default="2.0.0", description="Current application version"
     )
 
+    # Extended intervals
+    deep_analysis_interval: int = Field(
+        default=3600, description="Deep analysis interval in seconds"
+    )
+    report_generation_interval: int = Field(
+        default=86400, description="Report generation interval in seconds"
+    )
+
+    # Extended thresholds
+    stalker_score_threshold: int = Field(
+        default=70, description="Stalker score threshold (0-100)"
+    )
+    correlation_min_events: int = Field(
+        default=5, description="Minimum events for correlation analysis"
+    )
+    anomaly_sensitivity: float = Field(
+        default=0.8, description="Anomaly detection sensitivity (0-1)"
+    )
+
+    # Storage directories
+    log_dir: str = Field(
+        default="data/logs", description="Directory for log files"
+    )
+    backup_dir: str = Field(
+        default="data/backups", description="Directory for backup files"
+    )
+    report_dir: str = Field(
+        default="data/reports", description="Directory for report files"
+    )
+    session_dir: str = Field(
+        default="data/sessions", description="Directory for session files"
+    )
+
     # Logging
     log_level: str = Field(default="INFO", description="Application log level")
 
