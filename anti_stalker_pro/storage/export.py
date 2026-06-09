@@ -211,7 +211,7 @@ class DataExporter:
         from bot.report_generator import ReportGenerator
 
         generator = ReportGenerator()
-        pdf_path = await generator.generate_pdf(user_id)
+        pdf_path = await generator.generate_user_report(user_id)
         return pdf_path
 
     async def archive_old_data(self, days: int = 90) -> dict:

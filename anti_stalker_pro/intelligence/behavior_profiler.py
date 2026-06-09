@@ -299,6 +299,39 @@ class BehaviorProfiler:
             }
         return None
 
+    async def rebuild_all_profiles(self) -> list[dict]:
+        """Rebuild behavior profiles for all active tracked users.
+
+        Iterates all active tracked users, builds heatmaps and detects
+        obsession patterns for each one.
+
+        Returns:
+            list[dict]: List of profile dicts with user_id, heatmap, and patterns.
+        """
+        profiles = []
+
+        async for session in get_session():
+            result = await session.execute(
+                select(TrackedUser).where(TrackedUser.is_active.is_(True))
+            )
+            users = result.scalars().all()
+
+        for user in users:
+            try:
+                heatmap = await self.build_heatmap(user.telegram_id)
+                patterns = await self.detect_obsession_patterns(user.telegram_id)
+                profiles.append({
+                    "user_id": user.telegram_id,
+                    "heatmap": heatmap,
+                    "patterns": patterns,
+                })
+            except Exception as e:
+                logger.error(
+                    f"Failed to rebuild profile for {user.telegram_id}: {e}"
+                )
+
+        return profiles
+
     async def get_personality_estimate(self, user_id: int) -> dict:
         """Estimate personality traits based on behavior timing patterns.
 

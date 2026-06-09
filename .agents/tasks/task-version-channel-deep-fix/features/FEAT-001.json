@@ -1,0 +1,35 @@
+{
+  "id": "FEAT-001",
+  "type": "fix",
+  "description": "Fix all method call mismatches and bugs across the codebase that prevent correct execution. Install dependencies and run tests to establish baseline.",
+  "status": "in_progress",
+  "steps": [
+    "Install project dependencies: cd /projects/sandbox/Export-bot/anti_stalker_pro && pip install -r requirements.txt",
+    "Run existing tests to see which pass: python -m pytest tests/ -v",
+    "Fix scheduler/tasks.py: task_check_online() calls tracker.check_all_tracked_users() but OnlineTracker method is check_all_targets() - change to check_all_targets()",
+    "Fix scheduler/tasks.py: task_anomaly_detection() calls detector.detect_anomalies() but AnomalyDetector method is run() - change to run()",
+    "Fix scheduler/tasks.py: task_deep_analysis() calls engine.analyze_all_users() but PatternEngine method is deep_analysis() - change to deep_analysis()",
+    "Fix scheduler/tasks.py: task_rebuild_profiles() calls profiler.rebuild_all_profiles() but BehaviorProfiler has no such method - add a rebuild_all_profiles() method to BehaviorProfiler that iterates all active tracked users and builds heatmaps + detects patterns for each",
+    "Fix dashboard/routes/reports.py: generate_pdf_report() calls generator.generate_pdf(user_id) but ReportGenerator method is generate_user_report(user_id) - change to generate_user_report(user_id)",
+    "Fix storage/export.py: export_pdf() calls generator.generate_pdf(user_id) but ReportGenerator method is generate_user_report(user_id) - change to generate_user_report(user_id)",
+    "Fix bot/report_generator.py: the _classify_score method appears truncated at the end of the file - ensure it is complete with the classification logic (NORMAL 0-25, CURIOUS 25-50, SUSPICIOUS 50-75, STALKER 75-100)",
+    "After all fixes, run tests again: python -m pytest tests/ -v and confirm all pass",
+    "Validate imports work by running: python -c 'from scheduler.tasks import register_all_tasks; from intelligence.behavior_profiler import BehaviorProfiler; from dashboard.routes.reports import router; from storage.export import DataExporter; print(\"All imports OK\")'"
+  ],
+  "acceptance_criteria": [
+    "All method calls in scheduler/tasks.py match their actual implementations in the referenced modules",
+    "dashboard/routes/reports.py uses the correct method name generate_user_report()",
+    "storage/export.py uses the correct method name generate_user_report()",
+    "BehaviorProfiler has a rebuild_all_profiles() method that works with all active tracked users",
+    "bot/report_generator.py _classify_score method is complete and functional",
+    "python -m pytest tests/ -v passes all tests",
+    "python -c import validation passes with no ImportError or AttributeError"
+  ],
+  "verification": [
+    "cd /projects/sandbox/Export-bot/anti_stalker_pro && python -m pytest tests/ -v",
+    "cd /projects/sandbox/Export-bot/anti_stalker_pro && python -c \"from scheduler.tasks import register_all_tasks; from intelligence.behavior_profiler import BehaviorProfiler; from dashboard.routes.reports import router; from storage.export import DataExporter; print('All imports OK')\"",
+    "cd /projects/sandbox/Export-bot/anti_stalker_pro && python -c \"from scheduler import tasks; import inspect; src = inspect.getsource(tasks.task_check_online); assert 'check_all_targets' in src; src2 = inspect.getsource(tasks.task_anomaly_detection); assert '.run()' in src2; src3 = inspect.getsource(tasks.task_deep_analysis); assert 'deep_analysis' in src3; print('Method calls verified')\""
+  ],
+  "blocked_reason": null,
+  "findings": ""
+}

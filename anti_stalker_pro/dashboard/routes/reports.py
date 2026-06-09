@@ -72,7 +72,7 @@ async def generate_pdf_report(
             raise HTTPException(status_code=404, detail="Target not found")
 
     generator = ReportGenerator()
-    pdf_path = await generator.generate_pdf(user_id)
+    pdf_path = await generator.generate_user_report(user_id)
 
     if not pdf_path or not Path(pdf_path).exists():
         raise HTTPException(status_code=500, detail="Failed to generate PDF report")

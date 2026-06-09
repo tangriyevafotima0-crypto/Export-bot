@@ -133,7 +133,7 @@ async def task_check_online() -> None:
         from userbot.online_tracker import OnlineTracker
 
         tracker = OnlineTracker()
-        changes = await tracker.check_all_tracked_users()
+        changes = await tracker.check_all_targets()
         if changes > 0:
             logger.debug(f"Online check detected {changes} status changes")
     except Exception as e:
@@ -150,7 +150,7 @@ async def task_anomaly_detection() -> None:
         from intelligence.anomaly_detector import AnomalyDetector
 
         detector = AnomalyDetector()
-        anomalies = await detector.detect_anomalies()
+        anomalies = await detector.run()
         if anomalies:
             logger.info(f"Anomaly detection found {len(anomalies)} anomalies")
 
@@ -241,7 +241,7 @@ async def task_deep_analysis() -> None:
         from intelligence.pattern_engine import PatternEngine
 
         engine = PatternEngine()
-        patterns = await engine.analyze_all_users()
+        patterns = await engine.deep_analysis()
         logger.info(f"Deep analysis found {len(patterns)} patterns")
     except Exception as e:
         logger.error(f"Deep analysis task failed: {e}")

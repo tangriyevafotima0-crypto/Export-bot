@@ -1,0 +1,32 @@
+{
+  "id": "FEAT-002",
+  "type": "feat",
+  "description": "Create a version update channel feature - a Telegram channel module where the bot posts version/update announcements automatically. Includes a new bot/version_channel.py module with functions to announce new versions, changelog entries, and system status updates to a configured channel.",
+  "status": "pending",
+  "steps": [
+    "Add VERSION_CHANNEL_ID setting to core/config.py Settings class (optional int field, default None) - this is the Telegram channel ID where version updates are posted",
+    "Add APP_VERSION constant to core/config.py (default '2.0.0')",
+    "Create bot/version_channel.py with a VersionChannel class that has: (a) post_version_update(version, changelog) method - posts a formatted update announcement to the channel, (b) post_system_status(status_data) method - posts system health/status update, (c) post_changelog_entry(entry) method - posts a single changelog item",
+    "Add a /version bot command in bot/handler.py that shows current version and last update info",
+    "Add a startup version announcement in main.py that calls VersionChannel.post_version_update() on boot to announce the system is running with current version",
+    "Add a CHANGELOG.md file at anti_stalker_pro/CHANGELOG.md with version 2.0.0 entry documenting the version channel feature and all bug fixes",
+    "Add tests in tests/test_version_channel.py that verify the VersionChannel class methods format messages correctly and handle missing channel ID gracefully",
+    "Run all tests to confirm: python -m pytest tests/ -v"
+  ],
+  "acceptance_criteria": [
+    "core/config.py has version_channel_id (Optional[int], default None) and app_version (str, default '2.0.0') fields",
+    "bot/version_channel.py exists with VersionChannel class containing post_version_update, post_system_status, and post_changelog_entry methods",
+    "bot/handler.py has /version command registered and implemented",
+    "main.py sends startup version announcement via VersionChannel",
+    "CHANGELOG.md exists with meaningful version history",
+    "tests/test_version_channel.py exists and passes",
+    "All tests pass: python -m pytest tests/ -v"
+  ],
+  "verification": [
+    "cd /projects/sandbox/Export-bot/anti_stalker_pro && python -m pytest tests/ -v",
+    "cd /projects/sandbox/Export-bot/anti_stalker_pro && python -c \"from bot.version_channel import VersionChannel; print('VersionChannel imported OK')\"",
+    "cd /projects/sandbox/Export-bot/anti_stalker_pro && python -c \"from core.config import Settings; s = Settings; fields = s.model_fields; assert 'version_channel_id' in fields; assert 'app_version' in fields; print('Config fields OK')\""
+  ],
+  "blocked_reason": null,
+  "findings": ""
+}
