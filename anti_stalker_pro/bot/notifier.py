@@ -24,6 +24,18 @@ class Notifier:
     duplicate suppression (30-minute window), and severity-based formatting.
     """
 
+    _instance: Optional["Notifier"] = None
+
+    def __new__(cls, bot: Optional[Bot] = None) -> "Notifier":
+        """Ensure singleton pattern for the Notifier instance.
+
+        Returns:
+            Notifier: The single Notifier instance.
+        """
+        if cls._instance is None:
+            cls._instance = super().__new__(cls)
+        return cls._instance
+
     def __init__(self, bot: Optional[Bot] = None) -> None:
         """Initialize the Notifier with a bot instance.
 
@@ -31,11 +43,14 @@ class Notifier:
             bot: Optional python-telegram-bot Bot instance. If None,
                 creates one from settings.
         """
-        self._settings = get_settings()
-        self._bot = bot
-        self._last_notifications: dict[str, datetime] = {}
-        self._quiet_start_hour: int = 0
-        self._quiet_end_hour: int = 8
+        if not hasattr(self, "_last_notifications"):
+            self._settings = get_settings()
+            self._bot = bot
+            self._last_notifications: dict[str, datetime] = {}
+            self._quiet_start_hour: int = 0
+            self._quiet_end_hour: int = 8
+        elif bot is not None:
+            self._bot = bot
 
     @property
     def bot(self) -> Bot:
@@ -237,7 +252,7 @@ class Notifier:
             key: Notification deduplication key.
             user_id: Associated user ID.
         """
-        self._last_notifications[f"{key}_{user_id}"] = datetime.utcnow()
+        self._last_notifications[key] = datetime.utcnow()
 
     def _severity_emoji(self, severity: str) -> str:
         """Get the emoji for an alert severity level.

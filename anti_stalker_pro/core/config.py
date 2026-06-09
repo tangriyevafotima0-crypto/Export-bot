@@ -9,6 +9,7 @@ The .env file is resolved from multiple locations in priority order:
 3. ~/.anti_stalker/config/.env (deploy.sh default location)
 """
 
+from functools import lru_cache
 from pathlib import Path
 from typing import Optional
 
@@ -143,6 +144,7 @@ class Settings(BaseSettings):
     }
 
 
+@lru_cache()
 def get_settings() -> Settings:
     """Create and return a Settings instance.
 

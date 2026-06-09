@@ -28,8 +28,22 @@ class OnlineTracker:
     session durations, and detects overlap with the owner's activity.
     """
 
+    _instance: Optional["OnlineTracker"] = None
+
+    def __new__(cls) -> "OnlineTracker":
+        """Ensure singleton pattern for the tracker instance.
+
+        Returns:
+            OnlineTracker: The single tracker instance.
+        """
+        if cls._instance is None:
+            cls._instance = super().__new__(cls)
+        return cls._instance
+
     def __init__(self) -> None:
         """Initialize the OnlineTracker with the userbot client."""
+        if hasattr(self, "_online_cache"):
+            return
         from userbot.client import TelethonClient
 
         self._telethon = TelethonClient()

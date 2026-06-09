@@ -12,7 +12,6 @@ from pathlib import Path
 
 import uvicorn
 from flask import Flask
-from telethon import TelegramClient
 from telethon.errors import FloodWaitError, SessionPasswordNeededError
 from telegram.ext import ApplicationBuilder
 
@@ -23,6 +22,7 @@ from bot.handler import setup_bot_handlers
 from bot.version_channel import VersionChannel
 from scheduler.task_manager import TaskManager
 from trapnet.flask_server import create_flask_app, set_main_loop
+from userbot.client import TelethonClient
 
 logger = get_logger(__name__)
 
@@ -77,7 +77,7 @@ async def send_startup_notification(bot_app, chat_id: int) -> None:
         logger.warning(f"Failed to send startup notification: {e}")
 
 
-async def authenticate_userbot(client: TelegramClient, settings) -> bool:
+async def authenticate_userbot(client, settings) -> bool:
     """Run the interactive Telethon authentication flow.
 
     Prompts for phone number verification code and optional 2FA password.
@@ -154,11 +154,8 @@ async def main() -> None:
     await init_db()
     logger.info("Database initialized successfully")
 
-    userbot = TelegramClient(
-        str(data_dir / "userbot_session"),
-        settings.telegram_api_id,
-        settings.telegram_api_hash,
-    )
+    telethon_client = TelethonClient()
+    userbot = telethon_client.client
 
     task_manager = TaskManager()
     task_manager.init_scheduler()
@@ -192,14 +189,14 @@ async def main() -> None:
 
     try:
         logger.info("Connecting Telethon userbot")
-        await userbot.connect()
+        await telethon_client.connect()
 
         if not await userbot.is_user_authorized():
             logger.info("Userbot not authorized. Starting authentication flow...")
             auth_success = await authenticate_userbot(userbot, settings)
             if not auth_success:
                 logger.error("Authentication failed. Cannot continue.")
-                await userbot.disconnect()
+                await telethon_client.disconnect()
                 sys.exit(1)
 
         logger.info("Userbot connected and authorized")
@@ -283,7 +280,7 @@ async def main() -> None:
             dashboard_task.cancel()
 
         try:
-            await userbot.disconnect()
+            await telethon_client.disconnect()
         except Exception as e:
             logger.warning(f"Error disconnecting userbot: {e}")
 
