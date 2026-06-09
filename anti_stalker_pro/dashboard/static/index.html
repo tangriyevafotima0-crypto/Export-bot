@@ -1,0 +1,463 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Anti-Stalker Intelligence Dashboard</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        dark: { 800: '#1f2937', 900: '#111827', 950: '#030712' }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body { background: #030712; }
+        .card { background: #111827; border: 1px solid rgba(75, 85, 99, 0.3); }
+        .animate-pulse-once { animation: pulse 1s ease-in-out; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        .fade-in { animation: fadeIn 0.3s ease-out; }
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: #1f2937; }
+        ::-webkit-scrollbar-thumb { background: #4b5563; border-radius: 3px; }
+    </style>
+</head>
+<body class="text-gray-200 min-h-screen">
+    <!-- Login Screen -->
+    <div id="login-screen" class="flex items-center justify-center min-h-screen">
+        <div class="card rounded-xl p-8 w-full max-w-md">
+            <div class="text-center mb-6">
+                <h1 class="text-2xl font-bold text-indigo-400">Anti-Stalker Intelligence</h1>
+                <p class="text-gray-500 mt-1">Enter your dashboard password</p>
+            </div>
+            <form id="login-form" class="space-y-4">
+                <input type="password" id="login-password" placeholder="Dashboard Secret Key"
+                    class="w-full px-4 py-3 rounded-lg bg-gray-800 border border-gray-700 text-gray-200 focus:border-indigo-500 focus:outline-none">
+                <button type="submit"
+                    class="w-full py-3 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white font-medium transition">
+                    Sign In
+                </button>
+                <p id="login-error" class="text-red-400 text-sm text-center hidden"></p>
+            </form>
+        </div>
+    </div>
+
+    <!-- Dashboard -->
+    <div id="dashboard" class="hidden">
+        <!-- Navigation -->
+        <nav class="bg-gray-900 border-b border-gray-800 sticky top-0 z-50">
+            <div class="max-w-7xl mx-auto px-4 py-3 flex items-center justify-between">
+                <div class="flex items-center gap-3">
+                    <span class="text-xl font-bold text-indigo-400">ASI</span>
+                    <span class="text-gray-500 text-sm hidden sm:inline">Anti-Stalker Intelligence</span>
+                </div>
+                <div class="flex items-center gap-4">
+                    <span id="ws-status" class="flex items-center gap-1 text-xs">
+                        <span class="w-2 h-2 rounded-full bg-gray-500"></span>
+                        <span class="text-gray-500">Connecting...</span>
+                    </span>
+                    <button onclick="logout()" class="text-sm text-gray-400 hover:text-red-400 transition">Logout</button>
+                </div>
+            </div>
+        </nav>
+
+        <!-- Tab Navigation -->
+        <div class="max-w-7xl mx-auto px-4 mt-4">
+            <div class="flex gap-2 overflow-x-auto pb-2">
+                <button onclick="showTab('overview')" class="tab-btn active px-4 py-2 rounded-lg text-sm font-medium bg-indigo-600 text-white">Overview</button>
+                <button onclick="showTab('targets')" class="tab-btn px-4 py-2 rounded-lg text-sm font-medium bg-gray-800 text-gray-400 hover:bg-gray-700">Targets</button>
+                <button onclick="showTab('analytics')" class="tab-btn px-4 py-2 rounded-lg text-sm font-medium bg-gray-800 text-gray-400 hover:bg-gray-700">Analytics</button>
+                <button onclick="showTab('alerts')" class="tab-btn px-4 py-2 rounded-lg text-sm font-medium bg-gray-800 text-gray-400 hover:bg-gray-700">Alerts</button>
+                <button onclick="showTab('biotracker')" class="tab-btn px-4 py-2 rounded-lg text-sm font-medium bg-gray-800 text-gray-400 hover:bg-gray-700">Bio Tracker</button>
+            </div>
+        </div>
+
+        <!-- Overview Tab -->
+        <div id="tab-overview" class="tab-content max-w-7xl mx-auto px-4 py-6">
+            <!-- Stats Cards -->
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+                <div class="card rounded-xl p-5">
+                    <p class="text-gray-500 text-sm">Total Targets</p>
+                    <p id="stat-targets" class="text-3xl font-bold text-indigo-400 mt-1">0</p>
+                </div>
+                <div class="card rounded-xl p-5">
+                    <p class="text-gray-500 text-sm">Today Events</p>
+                    <p id="stat-events" class="text-3xl font-bold text-green-400 mt-1">0</p>
+                </div>
+                <div class="card rounded-xl p-5">
+                    <p class="text-gray-500 text-sm">Active Alerts</p>
+                    <p id="alert-count" class="text-3xl font-bold text-red-400 mt-1">0</p>
+                </div>
+                <div class="card rounded-xl p-5">
+                    <p class="text-gray-500 text-sm">Top Score</p>
+                    <p id="stat-topscore" class="text-3xl font-bold text-yellow-400 mt-1">0</p>
+                </div>
+            </div>
+
+            <!-- Two columns: Top suspects + Real-time -->
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <div class="card rounded-xl p-5">
+                    <h3 class="text-lg font-semibold text-gray-200 mb-4">Top Suspects</h3>
+                    <div id="top-suspects" class="space-y-3">
+                        <p class="text-gray-500 text-sm">Loading...</p>
+                    </div>
+                </div>
+                <div class="card rounded-xl p-5">
+                    <h3 class="text-lg font-semibold text-gray-200 mb-4">Real-time Events</h3>
+                    <div id="realtime-events" class="space-y-2 max-h-80 overflow-y-auto">
+                        <p class="text-gray-500 text-sm">Waiting for events...</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Targets Tab -->
+        <div id="tab-targets" class="tab-content hidden max-w-7xl mx-auto px-4 py-6">
+            <div class="flex justify-between items-center mb-4">
+                <h2 class="text-xl font-bold">Tracked Targets</h2>
+                <button onclick="showAddTargetModal()" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 rounded-lg text-sm font-medium transition">
+                    + Add Target
+                </button>
+            </div>
+            <div class="card rounded-xl overflow-hidden">
+                <table class="w-full text-sm">
+                    <thead class="bg-gray-800">
+                        <tr>
+                            <th class="px-4 py-3 text-left text-gray-400">User</th>
+                            <th class="px-4 py-3 text-left text-gray-400">Score</th>
+                            <th class="px-4 py-3 text-left text-gray-400">Status</th>
+                            <th class="px-4 py-3 text-left text-gray-400">Added</th>
+                            <th class="px-4 py-3 text-left text-gray-400">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="targets-table" class="divide-y divide-gray-800">
+                        <tr><td colspan="5" class="px-4 py-8 text-center text-gray-500">Loading...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Analytics Tab -->
+        <div id="tab-analytics" class="tab-content hidden max-w-7xl mx-auto px-4 py-6">
+            <h2 class="text-xl font-bold mb-4">Analytics</h2>
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <div class="card rounded-xl p-5">
+                    <canvas id="chart-heatmap" height="250"></canvas>
+                </div>
+                <div class="card rounded-xl p-5">
+                    <canvas id="chart-score-history" height="250"></canvas>
+                </div>
+                <div class="card rounded-xl p-5">
+                    <canvas id="chart-daily" height="250"></canvas>
+                </div>
+                <div class="card rounded-xl p-5">
+                    <canvas id="chart-timeline" height="250"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <!-- Alerts Tab -->
+        <div id="tab-alerts" class="tab-content hidden max-w-7xl mx-auto px-4 py-6">
+            <h2 class="text-xl font-bold mb-4">Recent Alerts</h2>
+            <div id="alerts-list" class="space-y-3">
+                <p class="text-gray-500 text-sm">Loading alerts...</p>
+            </div>
+        </div>
+
+        <!-- Bio Tracker Tab -->
+        <div id="tab-biotracker" class="tab-content hidden max-w-7xl mx-auto px-4 py-6">
+            <h2 class="text-xl font-bold mb-4">Bio Link Tracker</h2>
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <div class="card rounded-xl p-5">
+                    <canvas id="chart-device-pie" height="250"></canvas>
+                </div>
+                <div class="card rounded-xl p-5">
+                    <h3 class="text-lg font-semibold text-gray-200 mb-4">Recent Visits</h3>
+                    <div id="bio-visits" class="space-y-2 max-h-80 overflow-y-auto">
+                        <p class="text-gray-500 text-sm">No visits recorded yet.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Add Target Modal -->
+    <div id="add-target-modal" class="hidden fixed inset-0 bg-black/60 flex items-center justify-center z-50">
+        <div class="card rounded-xl p-6 w-full max-w-md">
+            <h3 class="text-lg font-bold mb-4">Add New Target</h3>
+            <form id="add-target-form" class="space-y-3">
+                <input type="number" id="target-telegram-id" placeholder="Telegram ID" required
+                    class="w-full px-4 py-2 rounded-lg bg-gray-800 border border-gray-700 text-gray-200 focus:border-indigo-500 focus:outline-none">
+                <input type="text" id="target-username" placeholder="Username (optional)"
+                    class="w-full px-4 py-2 rounded-lg bg-gray-800 border border-gray-700 text-gray-200 focus:border-indigo-500 focus:outline-none">
+                <input type="text" id="target-firstname" placeholder="First Name (optional)"
+                    class="w-full px-4 py-2 rounded-lg bg-gray-800 border border-gray-700 text-gray-200 focus:border-indigo-500 focus:outline-none">
+                <textarea id="target-notes" placeholder="Notes (optional)"
+                    class="w-full px-4 py-2 rounded-lg bg-gray-800 border border-gray-700 text-gray-200 focus:border-indigo-500 focus:outline-none"></textarea>
+                <div class="flex gap-3 pt-2">
+                    <button type="submit" class="flex-1 py-2 bg-indigo-600 hover:bg-indigo-700 rounded-lg font-medium transition">Add</button>
+                    <button type="button" onclick="hideAddTargetModal()" class="flex-1 py-2 bg-gray-700 hover:bg-gray-600 rounded-lg font-medium transition">Cancel</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script src="/static/charts.js"></script>
+    <script src="/static/realtime.js"></script>
+    <script>
+        const API_BASE = '';
+        let authToken = localStorage.getItem('auth_token');
+        let charts = {};
+
+        // Auth helpers
+        function getHeaders() {
+            return { 'Authorization': `Bearer ${authToken}`, 'Content-Type': 'application/json' };
+        }
+
+        async function apiGet(path) {
+            const res = await fetch(API_BASE + path, { headers: getHeaders() });
+            if (res.status === 401) { logout(); return null; }
+            return res.json();
+        }
+
+        async function apiPost(path, body) {
+            const res = await fetch(API_BASE + path, {
+                method: 'POST', headers: getHeaders(), body: JSON.stringify(body)
+            });
+            if (res.status === 401) { logout(); return null; }
+            return res.json();
+        }
+
+        async function apiDelete(path) {
+            const res = await fetch(API_BASE + path, { method: 'DELETE', headers: getHeaders() });
+            if (res.status === 401) { logout(); return null; }
+            return res.json();
+        }
+
+        // Login
+        document.getElementById('login-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const password = document.getElementById('login-password').value;
+            try {
+                const res = await fetch(API_BASE + '/api/auth/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ password })
+                });
+                const data = await res.json();
+                if (res.ok && data.access_token) {
+                    authToken = data.access_token;
+                    localStorage.setItem('auth_token', authToken);
+                    showDashboard();
+                } else {
+                    document.getElementById('login-error').textContent = data.detail || 'Login failed';
+                    document.getElementById('login-error').classList.remove('hidden');
+                }
+            } catch (err) {
+                document.getElementById('login-error').textContent = 'Connection error';
+                document.getElementById('login-error').classList.remove('hidden');
+            }
+        });
+
+        function logout() {
+            localStorage.removeItem('auth_token');
+            authToken = null;
+            document.getElementById('dashboard').classList.add('hidden');
+            document.getElementById('login-screen').classList.remove('hidden');
+            realtimeClient.disconnect();
+        }
+
+        function showDashboard() {
+            document.getElementById('login-screen').classList.add('hidden');
+            document.getElementById('dashboard').classList.remove('hidden');
+            loadOverview();
+            realtimeClient.connect();
+            realtimeClient.on('connected', () => {
+                document.getElementById('ws-status').innerHTML =
+                    '<span class="w-2 h-2 rounded-full bg-green-500"></span><span class="text-green-400">Live</span>';
+            });
+            realtimeClient.on('disconnected', () => {
+                document.getElementById('ws-status').innerHTML =
+                    '<span class="w-2 h-2 rounded-full bg-red-500"></span><span class="text-red-400">Disconnected</span>';
+            });
+        }
+
+        // Tab switching
+        function showTab(name) {
+            document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
+            document.querySelectorAll('.tab-btn').forEach(btn => {
+                btn.classList.remove('active', 'bg-indigo-600', 'text-white');
+                btn.classList.add('bg-gray-800', 'text-gray-400');
+            });
+            document.getElementById('tab-' + name).classList.remove('hidden');
+            event.target.classList.add('active', 'bg-indigo-600', 'text-white');
+            event.target.classList.remove('bg-gray-800', 'text-gray-400');
+
+            if (name === 'targets') loadTargets();
+            if (name === 'analytics') loadAnalytics();
+            if (name === 'alerts') loadAlerts();
+            if (name === 'biotracker') loadBioTracker();
+        }
+
+        // Data loaders
+        async function loadOverview() {
+            const data = await apiGet('/api/analytics/overview');
+            if (!data) return;
+            document.getElementById('stat-targets').textContent = data.total_targets;
+            document.getElementById('stat-events').textContent = data.today_events;
+            document.getElementById('alert-count').textContent = data.today_alerts;
+            const topScore = data.top_suspects.length > 0 ? data.top_suspects[0].score : 0;
+            document.getElementById('stat-topscore').textContent = topScore;
+
+            const container = document.getElementById('top-suspects');
+            if (data.top_suspects.length === 0) {
+                container.innerHTML = '<p class="text-gray-500 text-sm">No suspects tracked yet.</p>';
+            } else {
+                container.innerHTML = data.top_suspects.map(s => `
+                    <div class="flex items-center justify-between p-3 bg-gray-800 rounded-lg">
+                        <div>
+                            <span class="font-medium text-gray-200">${s.username || s.first_name || s.telegram_id}</span>
+                        </div>
+                        <span class="px-2 py-1 rounded text-xs font-bold ${getScoreColor(s.score)}">${s.score}</span>
+                    </div>
+                `).join('');
+            }
+        }
+
+        async function loadTargets() {
+            const data = await apiGet('/api/targets');
+            if (!data) return;
+            const tbody = document.getElementById('targets-table');
+            if (data.targets.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="5" class="px-4 py-8 text-center text-gray-500">No targets yet.</td></tr>';
+                return;
+            }
+            tbody.innerHTML = data.targets.map(t => `
+                <tr class="hover:bg-gray-800/50">
+                    <td class="px-4 py-3">
+                        <div>
+                            <p class="font-medium">${t.username || t.first_name || t.telegram_id}</p>
+                            <p class="text-xs text-gray-500">ID: ${t.telegram_id}</p>
+                        </div>
+                    </td>
+                    <td class="px-4 py-3"><span class="px-2 py-1 rounded text-xs font-bold ${getScoreColor(t.suspicion_score)}">${t.suspicion_score}</span></td>
+                    <td class="px-4 py-3"><span class="text-xs ${t.is_active ? 'text-green-400' : 'text-gray-500'}">${t.is_active ? 'Active' : 'Inactive'}</span></td>
+                    <td class="px-4 py-3 text-xs text-gray-500">${new Date(t.added_at).toLocaleDateString()}</td>
+                    <td class="px-4 py-3">
+                        <button onclick="removeTarget(${t.telegram_id})" class="text-xs text-red-400 hover:text-red-300">Remove</button>
+                    </td>
+                </tr>
+            `).join('');
+        }
+
+        async function loadAnalytics() {
+            const targets = await apiGet('/api/targets');
+            if (!targets || targets.targets.length === 0) return;
+            const firstTarget = targets.targets[0].telegram_id;
+
+            const [heatmapData, scoreData] = await Promise.all([
+                apiGet(`/api/analytics/heatmap/${firstTarget}`),
+                apiGet(`/api/analytics/score-history/${firstTarget}`)
+            ]);
+
+            if (heatmapData && heatmapData.heatmap) {
+                if (charts.heatmap) charts.heatmap.destroy();
+                charts.heatmap = renderHeatmap(document.getElementById('chart-heatmap'), heatmapData.heatmap);
+            }
+
+            if (scoreData && scoreData.history.length > 0) {
+                if (charts.scoreHistory) charts.scoreHistory.destroy();
+                charts.scoreHistory = renderScoreHistory(document.getElementById('chart-score-history'), scoreData.history);
+            }
+
+            // Mock daily distribution from heatmap data
+            if (heatmapData && heatmapData.heatmap) {
+                const hourly = Array(24).fill(0);
+                heatmapData.heatmap.forEach(day => day.forEach((val, h) => hourly[h] += val));
+                if (charts.daily) charts.daily.destroy();
+                charts.daily = renderDailyDistribution(document.getElementById('chart-daily'), hourly);
+            }
+        }
+
+        async function loadAlerts() {
+            const data = await apiGet('/api/reports/daily');
+            if (!data) return;
+            const container = document.getElementById('alerts-list');
+            if (!data.recent_alerts || data.recent_alerts.length === 0) {
+                container.innerHTML = '<p class="text-gray-500 text-sm">No alerts today.</p>';
+                return;
+            }
+            container.innerHTML = data.recent_alerts.map(a => `
+                <div class="card rounded-lg p-4 fade-in">
+                    <div class="flex items-start gap-3">
+                        <span class="w-3 h-3 mt-1 rounded-full bg-${a.severity === 'high' ? 'red' : 'yellow'}-500"></span>
+                        <div class="flex-1">
+                            <p class="text-sm text-gray-200">${a.message}</p>
+                            <p class="text-xs text-gray-500 mt-1">${a.alert_type} - ${new Date(a.created_at).toLocaleString()}</p>
+                        </div>
+                        <span class="text-xs px-2 py-1 rounded ${a.severity === 'high' ? 'bg-red-900/50 text-red-400' : 'bg-yellow-900/50 text-yellow-400'}">${a.severity}</span>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        async function loadBioTracker() {
+            // Render device pie chart with sample data structure
+            if (charts.devicePie) charts.devicePie.destroy();
+            charts.devicePie = renderDevicePieChart(
+                document.getElementById('chart-device-pie'),
+                { 'Mobile': 0, 'Desktop': 0, 'Tablet': 0 }
+            );
+        }
+
+        // Actions
+        async function removeTarget(telegramId) {
+            if (!confirm('Remove this target from tracking?')) return;
+            await apiDelete(`/api/targets/${telegramId}`);
+            loadTargets();
+        }
+
+        function showAddTargetModal() {
+            document.getElementById('add-target-modal').classList.remove('hidden');
+        }
+
+        function hideAddTargetModal() {
+            document.getElementById('add-target-modal').classList.add('hidden');
+        }
+
+        document.getElementById('add-target-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const body = {
+                telegram_id: parseInt(document.getElementById('target-telegram-id').value),
+                username: document.getElementById('target-username').value || null,
+                first_name: document.getElementById('target-firstname').value || null,
+                notes: document.getElementById('target-notes').value || null,
+            };
+            await apiPost('/api/targets', body);
+            hideAddTargetModal();
+            loadTargets();
+            e.target.reset();
+        });
+
+        // Helpers
+        function getScoreColor(score) {
+            if (score >= 75) return 'bg-red-900/50 text-red-400';
+            if (score >= 50) return 'bg-yellow-900/50 text-yellow-400';
+            if (score >= 25) return 'bg-blue-900/50 text-blue-400';
+            return 'bg-green-900/50 text-green-400';
+        }
+
+        // Init
+        if (authToken) {
+            showDashboard();
+        }
+    </script>
+</body>
+</html>

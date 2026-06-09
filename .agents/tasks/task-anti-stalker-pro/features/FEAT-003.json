@@ -1,0 +1,36 @@
+{
+  "id": "FEAT-003",
+  "type": "feat",
+  "description": "Implement the trapnet/ module (Flask tracking server, browser fingerprinting, honeypot baits, IP geolocation), bot/ module (Telegram bot command handler with all commands, inline keyboards, notification system, PDF report generator, alert manager), and scheduler/ module (APScheduler task management with all scheduled tasks).",
+  "status": "completed",
+  "steps": [
+    "Create /projects/sandbox/Export-bot/anti_stalker_pro/trapnet/flask_server.py with Flask app: tracking endpoint that logs visits, serves redirect page with fingerprint JS, captures IP/UA/referer, stores BioLinkVisit in database. Routes: GET /<tracking_code> (main trap), POST /api/fingerprint (receives JS fingerprint data). CORS disabled, minimal response to avoid detection.",
+    "Create /projects/sandbox/Export-bot/anti_stalker_pro/trapnet/fingerprinter.py with Fingerprinter class: generate_tracking_page() returns HTML with embedded JS that collects screen resolution, timezone, language, platform, color depth, touch support, WebGL renderer, then POSTs to /api/fingerprint. generate_fingerprint_hash(data) creates SHA-256 from collected features. same_device_check(hash1, hash2) returns similarity percentage.",
+    "Create /projects/sandbox/Export-bot/anti_stalker_pro/trapnet/honeypot.py with HoneypotManager class: generate_unique_tracking_url(user_id) creates unique short codes per target, schedule_bait_story(target_time) posts story at predicted optimal time, evaluate_bait_results() analyzes which baits were triggered. Bait types: BIO_LINK_BAIT, STORY_MENTION_BAIT, TIMED_STORY_BAIT, UNIQUE_LINK_BAIT.",
+    "Create /projects/sandbox/Export-bot/anti_stalker_pro/trapnet/geolocator.py with GeoLocator class: locate_ip(ip_address) returns country/city/region/lat/lon using geoip2 (with fallback to ip-api.com free API), get_location_summary(ip) returns human-readable string, bulk_locate(ip_list) batch processes IPs.",
+    "Create /projects/sandbox/Export-bot/anti_stalker_pro/bot/handler.py with full Telegram bot command handler using python-telegram-bot library. Implement ALL commands: /start, /add, /remove, /targets, /score, /report, /pdf, /heatmap, /predict, /top5, /stories, /patterns, /alerts, /settings, /pause, /resume, /status, /dashboard, /backup. Each command checks MY_TELEGRAM_ID authorization. Use ConversationHandler where needed.",
+    "Create /projects/sandbox/Export-bot/anti_stalker_pro/bot/keyboards.py with all InlineKeyboardMarkup builders: main_menu_keyboard(), target_action_keyboard(user_id), alert_level_keyboard(), settings_keyboard(), confirm_keyboard(). Use emojis as specified in the architecture.",
+    "Create /projects/sandbox/Export-bot/anti_stalker_pro/bot/notifier.py with Notifier class: send_alert(alert) sends formatted alert via bot to MY_TELEGRAM_ID, send_daily_report(report) sends daily summary, send_story_notification(viewer) instant story view notification. Respects quiet hours and duplicate suppression.",
+    "Create /projects/sandbox/Export-bot/anti_stalker_pro/bot/report_generator.py with ReportGenerator class using reportlab: generate_user_report(user_id) creates full PDF with cover page, score summary, story view table, online timeline table, heatmap visualization, score history graph, pattern analysis section. generate_daily_summary() creates daily overview PDF. Returns file path.",
+    "Create /projects/sandbox/Export-bot/anti_stalker_pro/bot/alert_manager.py with AlertManager class: create_alert(type, severity, user_id, message) creates Alert record, process_pending() sends unsent alerts respecting rules (max 2/hour per user, quiet hours 00:00-08:00 for non-CRITICAL, 30min duplicate suppression). Severity levels: INFO, WARNING, HIGH, CRITICAL.",
+    "Create /projects/sandbox/Export-bot/anti_stalker_pro/scheduler/task_manager.py with TaskManager class wrapping AsyncIOScheduler: init_scheduler() configures all jobs, start()/stop() lifecycle, add_job()/remove_job() dynamic management.",
+    "Create /projects/sandbox/Export-bot/anti_stalker_pro/scheduler/tasks.py with all scheduled task definitions: every 30s story check, every 60s online check, every 5min anomaly detection + alert processing, every 1h score update + prediction update, every 6h deep analysis + profile rebuild, daily 03:00 backup + archive, daily 21:00 report generation + sending, smart task for predictive bait posting when stalker probability > 70%."
+  ],
+  "acceptance_criteria": [
+    "Flask trap server handles tracking requests and stores visit data with fingerprints",
+    "All 18+ bot commands are fully implemented with proper authorization checks",
+    "PDF report generator creates actual PDF files using reportlab (not placeholders)",
+    "Alert manager respects rate limiting, quiet hours, and duplicate suppression rules",
+    "Scheduler configures all specified intervals correctly",
+    "Honeypot generates unique tracking URLs per target",
+    "All functions have type hints and docstrings, no TODOs"
+  ],
+  "verification": [
+    "cd /projects/sandbox/Export-bot/anti_stalker_pro && python -c \"from trapnet.flask_server import create_flask_app; from trapnet.fingerprinter import Fingerprinter; from trapnet.honeypot import HoneypotManager; from trapnet.geolocator import GeoLocator; print('Trapnet OK')\"",
+    "cd /projects/sandbox/Export-bot/anti_stalker_pro && python -c \"from bot.handler import setup_bot_handlers; from bot.keyboards import main_menu_keyboard; from bot.notifier import Notifier; from bot.report_generator import ReportGenerator; from bot.alert_manager import AlertManager; print('Bot OK')\"",
+    "cd /projects/sandbox/Export-bot/anti_stalker_pro && python -c \"from scheduler.task_manager import TaskManager; from scheduler.tasks import register_all_tasks; print('Scheduler OK')\"",
+    "cd /projects/sandbox/Export-bot/anti_stalker_pro && python -m py_compile bot/handler.py && python -m py_compile trapnet/flask_server.py && echo 'Compile OK'"
+  ],
+  "blocked_reason": null,
+  "findings": "All 11 files implemented and verified. aiohttp added to requirements.txt as it was needed by geolocator but missing. All imports resolve correctly and py_compile passes. ReportLab PDF generation verified with actual PDF output. No tests exist yet in tests/ directory so no test failures."
+}

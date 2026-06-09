@@ -1,0 +1,45 @@
+{
+  "id": "FEAT-004",
+  "type": "feat",
+  "description": "Implement the dashboard/ module (FastAPI web server with JWT auth, WebSocket real-time updates, analytics/targets/reports/realtime API routes, and full HTML/JS/CSS frontend with Chart.js and Tailwind CSS), the storage/ module (in-memory cache, CSV/JSON/PDF export, automated backup), tests, Dockerfile, docker-compose.yml, and README.md.",
+  "status": "completed",
+  "steps": [
+    "Create /projects/sandbox/Export-bot/anti_stalker_pro/dashboard/app.py with FastAPI application: CORS middleware, static file serving, WebSocket endpoint at /ws/realtime, lifespan handler for startup/shutdown, mount all route modules.",
+    "Create /projects/sandbox/Export-bot/anti_stalker_pro/dashboard/auth.py with JWT authentication: create_access_token(data), verify_token(token) using python-jose, get_current_user() dependency, login endpoint that verifies against DASHBOARD_SECRET_KEY. Token expires after JWT_EXPIRE_HOURS.",
+    "Create /projects/sandbox/Export-bot/anti_stalker_pro/dashboard/routes/analytics.py with FastAPI router: GET /api/analytics/overview (total targets, today events, top suspicious), GET /api/analytics/heatmap/{user_id}, GET /api/analytics/score-history/{user_id}, GET /api/analytics/patterns/{user_id}.",
+    "Create /projects/sandbox/Export-bot/anti_stalker_pro/dashboard/routes/targets.py with FastAPI router: GET /api/targets (list all), POST /api/targets (add new), DELETE /api/targets/{user_id}, GET /api/targets/{user_id}/profile (detailed info with score).",
+    "Create /projects/sandbox/Export-bot/anti_stalker_pro/dashboard/routes/reports.py with FastAPI router: GET /api/reports (list reports), GET /api/reports/{user_id}/pdf (generate and download PDF), GET /api/reports/daily (today summary data).",
+    "Create /projects/sandbox/Export-bot/anti_stalker_pro/dashboard/routes/realtime.py with WebSocket handler: accept connections, broadcast new events (story views, online events, bio clicks, alerts) to all connected clients in JSON format.",
+    "Create /projects/sandbox/Export-bot/anti_stalker_pro/dashboard/static/index.html with full single-page dashboard UI using Tailwind CSS CDN and Chart.js CDN. Dark mode design. Sections: overview with stats cards, targets table, analytics charts (heatmap grid, score line chart, daily distribution bar chart), alerts list, bio-tracker with device pie chart. Include login form, JWT token management in localStorage, responsive mobile layout.",
+    "Create /projects/sandbox/Export-bot/anti_stalker_pro/dashboard/static/charts.js with Chart.js initialization: renderHeatmap(data), renderScoreHistory(data), renderDailyDistribution(data), renderDevicePieChart(data), renderTimelineChart(data). All charts use dark theme colors.",
+    "Create /projects/sandbox/Export-bot/anti_stalker_pro/dashboard/static/realtime.js with WebSocket client: connect to /ws/realtime, handle incoming events, update dashboard DOM in real-time (new story viewers, online status changes, bio link clicks), reconnect on disconnect with exponential backoff.",
+    "Create /projects/sandbox/Export-bot/anti_stalker_pro/storage/cache.py with InMemoryCache class: get(key), set(key, value, ttl_seconds), delete(key), clear(), get_or_set(key, factory, ttl). Thread-safe with asyncio.Lock, TTL-based expiration.",
+    "Create /projects/sandbox/Export-bot/anti_stalker_pro/storage/export.py with DataExporter class: export_csv(user_id, data_type) exports to CSV, export_json(user_id) exports all data as JSON, export_pdf(user_id) delegates to report_generator, archive_old_data() moves data older than 90 days to archive.",
+    "Create /projects/sandbox/Export-bot/anti_stalker_pro/storage/backup.py with BackupManager class: create_backup() copies SQLite database to data/backups/ with timestamp, restore_backup(path) restores from backup, cleanup_old_backups(keep=7) removes old backups, auto_backup() called by scheduler daily.",
+    "Create /projects/sandbox/Export-bot/anti_stalker_pro/tests/test_pattern.py with pytest tests for PatternEngine: test pattern detection for each pattern type (NIGHT_STALKER, IMMEDIATE_RESPONDER, DAILY_CHECKER, SILENT_OBSERVER), test with mock data.",
+    "Create /projects/sandbox/Export-bot/anti_stalker_pro/tests/test_scorer.py with pytest tests for StalkerScorer: test feature calculations, test weighted scoring, test classification boundaries (0-30 NORMAL, 31-60 CURIOUS, 61-85 SUSPICIOUS, 86-100 STALKER), test explain_score output.",
+    "Create /projects/sandbox/Export-bot/anti_stalker_pro/tests/test_tracker.py with pytest tests for StoryTracker and OnlineTracker: test event recording, test alert triggering conditions, mock Telethon client responses.",
+    "Create /projects/sandbox/Export-bot/anti_stalker_pro/Dockerfile: FROM python:3.12-slim, WORKDIR /app, COPY requirements.txt and install, COPY all source, create data/ volume mount point, EXPOSE 5000 8080, CMD python main.py.",
+    "Create /projects/sandbox/Export-bot/anti_stalker_pro/docker-compose.yml: single service 'app' with build context, port mappings (5000:5000, 8080:8080), volume for ./data:/app/data, env_file .env, restart unless-stopped.",
+    "Create /projects/sandbox/Export-bot/anti_stalker_pro/README.md with full documentation: project description, features list, architecture overview, installation steps (manual and Docker), configuration guide (.env variables), bot commands list, dashboard usage, API endpoints, deployment instructions referencing deploy.sh."
+  ],
+  "acceptance_criteria": [
+    "FastAPI dashboard serves static HTML at / and provides all API endpoints",
+    "JWT authentication protects all dashboard routes",
+    "WebSocket endpoint broadcasts real-time events to connected clients",
+    "Dashboard HTML includes working Chart.js visualizations and Tailwind CSS styling",
+    "Storage module provides caching, export, and backup functionality",
+    "All 3 test files contain meaningful tests that exercise actual logic",
+    "Dockerfile builds successfully with all dependencies",
+    "docker-compose.yml correctly configures the service with volumes and ports",
+    "README.md provides complete documentation"
+  ],
+  "verification": [
+    "cd /projects/sandbox/Export-bot/anti_stalker_pro && python -c \"from dashboard.app import create_dashboard_app; from dashboard.auth import create_access_token; print('Dashboard OK')\"",
+    "cd /projects/sandbox/Export-bot/anti_stalker_pro && python -c \"from storage.cache import InMemoryCache; from storage.export import DataExporter; from storage.backup import BackupManager; print('Storage OK')\"",
+    "cd /projects/sandbox/Export-bot/anti_stalker_pro && python -m pytest tests/ -v",
+    "cd /projects/sandbox/Export-bot/anti_stalker_pro && python -m py_compile dashboard/app.py && python -m py_compile dashboard/auth.py && echo 'Dashboard compile OK'"
+  ],
+  "blocked_reason": null,
+  "findings": "pytest-asyncio 1.4.0 installed (latest available). Added pytest.ini with asyncio_mode=auto to enable automatic async test detection. All 35 tests pass. TelethonClient is imported lazily inside __init__ methods, so tests use __new__ pattern to create tracker instances without triggering the import. Added pytest and pytest-asyncio to requirements.txt for test runner availability."
+}
