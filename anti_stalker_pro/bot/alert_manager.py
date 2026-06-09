@@ -272,7 +272,6 @@ class AlertManager:
             for a in all_pending
             if a.tracked_user_id == alert.tracked_user_id
             and a.created_at >= one_hour_ago
-            and a.is_acknowledged
         ]
         return len(recent_for_user) >= 2
 
@@ -297,7 +296,6 @@ class AlertManager:
                 other.alert_type == alert.alert_type
                 and other.tracked_user_id == alert.tracked_user_id
                 and other.created_at >= thirty_min_ago
-                and other.is_acknowledged
             ):
                 return True
         return False

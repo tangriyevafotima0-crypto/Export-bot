@@ -54,6 +54,10 @@ class Settings(BaseSettings):
         default="change-me-to-a-random-secret",
         description="Secret key for JWT signing",
     )
+    admin_password: str = Field(
+        default="admin",
+        description="Admin password for dashboard login",
+    )
     dashboard_port: int = Field(default=8080, description="Dashboard server port")
     dashboard_host: str = Field(default="0.0.0.0", description="Dashboard host binding")
 

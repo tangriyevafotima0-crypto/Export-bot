@@ -82,7 +82,7 @@ def create_dashboard_app() -> FastAPI:
             JSONResponse: JWT access token on success.
         """
         settings = get_settings()
-        if request.password != settings.dashboard_secret_key:
+        if request.password != settings.admin_password:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Invalid credentials",

@@ -122,7 +122,7 @@ class StalkerScorer:
                 )
 
         if results:
-            self._normalize_scores(results)
+            await self._normalize_scores(results)
 
         logger.info(f"Updated scores for {len(results)} users")
         return results
@@ -276,11 +276,11 @@ class StalkerScorer:
                 return classification
         return "STALKER"
 
-    def _normalize_scores(self, results: list[dict]) -> None:
+    async def _normalize_scores(self, results: list[dict]) -> None:
         """Normalize scores across all users using MinMaxScaler.
 
         Adjusts scores so they are relative to the current population
-        of tracked users. Modifies results in-place.
+        of tracked users. Modifies results in-place and updates DB.
 
         Args:
             results: List of score result dictionaries.
@@ -295,6 +295,22 @@ class StalkerScorer:
                 result["normalized_score"] = round(float(normalized[i][0]), 2)
         except Exception as e:
             logger.debug(f"Normalization skipped: {e}")
+            return
+
+        async for session in get_session():
+            for result in results:
+                user_id = result["user_id"]
+                normalized_score = result.get("normalized_score")
+                if normalized_score is not None:
+                    db_result = await session.execute(
+                        select(TrackedUser).where(
+                            TrackedUser.telegram_id == user_id
+                        )
+                    )
+                    tracked = db_result.scalar_one_or_none()
+                    if tracked:
+                        tracked.suspicion_score = normalized_score
+            await session.commit()
 
     async def _feature_story_view_frequency(self, user_id: int) -> float:
         """Calculate story view frequency feature.

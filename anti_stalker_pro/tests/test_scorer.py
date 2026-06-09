@@ -162,22 +162,36 @@ class TestClassification:
 class TestNormalizeScores:
     """Tests for the _normalize_scores method."""
 
-    def test_normalizes_multiple_results(self, scorer):
+    @pytest.mark.asyncio
+    async def test_normalizes_multiple_results(self, scorer):
         """Should add normalized_score field to results."""
         results = [
-            {"total_score": 10.0},
-            {"total_score": 50.0},
-            {"total_score": 90.0},
+            {"total_score": 10.0, "user_id": 1},
+            {"total_score": 50.0, "user_id": 2},
+            {"total_score": 90.0, "user_id": 3},
         ]
-        scorer._normalize_scores(results)
+
+        mock_session = AsyncMock()
+        mock_result = MagicMock()
+        mock_result.scalar_one_or_none.return_value = MagicMock(suspicion_score=0.0)
+        mock_session.execute = AsyncMock(return_value=mock_result)
+        mock_session.commit = AsyncMock()
+
+        async def mock_get_session():
+            yield mock_session
+
+        with patch("intelligence.ml_scorer.get_session", mock_get_session):
+            await scorer._normalize_scores(results)
+
         assert "normalized_score" in results[0]
         assert "normalized_score" in results[2]
         assert results[0]["normalized_score"] < results[2]["normalized_score"]
 
-    def test_skip_single_result(self, scorer):
+    @pytest.mark.asyncio
+    async def test_skip_single_result(self, scorer):
         """Should not normalize if only one result."""
-        results = [{"total_score": 50.0}]
-        scorer._normalize_scores(results)
+        results = [{"total_score": 50.0, "user_id": 1}]
+        await scorer._normalize_scores(results)
         assert "normalized_score" not in results[0]
 
 

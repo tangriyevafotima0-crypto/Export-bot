@@ -194,7 +194,7 @@ async def cmd_add(
             return
 
         new_user = TrackedUser(
-            telegram_id=telegram_id or 0,
+            telegram_id=telegram_id,
             username=username,
             notes=notes,
             is_active=True,
@@ -282,6 +282,7 @@ async def cmd_targets(
     from core.database import get_session
     from core.models import TrackedUser
 
+    targets = []
     async for session in get_session():
         result = await session.execute(
             select(TrackedUser)
@@ -512,6 +513,9 @@ async def cmd_heatmap(
 
     cutoff = datetime.utcnow() - timedelta(days=14)
 
+    tracked = None
+    view_times = []
+    online_times = []
     async for session in get_session():
         result = await session.execute(
             select(TrackedUser).where(TrackedUser.telegram_id == user_id)
@@ -638,6 +642,7 @@ async def cmd_top5(
     from core.database import get_session
     from core.models import TrackedUser
 
+    top_users = []
     async for session in get_session():
         result = await session.execute(
             select(TrackedUser)
@@ -686,6 +691,7 @@ async def cmd_stories(
 
     cutoff = datetime.utcnow() - timedelta(hours=24)
 
+    rows = []
     async for session in get_session():
         result = await session.execute(
             select(StoryView, TrackedUser)
@@ -729,6 +735,7 @@ async def cmd_patterns(
     from core.database import get_session
     from core.models import SuspicionPattern, TrackedUser
 
+    patterns = []
     async for session in get_session():
         if context.args:
             try:
@@ -972,6 +979,10 @@ async def cmd_status(
     from core.database import get_session
     from core.models import TrackedUser, StoryView, OnlineEvent, Alert
 
+    total_active = 0
+    views_count = 0
+    events_count = 0
+    pending_count = 0
     async for session in get_session():
         active_count = await session.execute(
             select(func.count(TrackedUser.id)).where(
@@ -1054,7 +1065,14 @@ async def cmd_backup(
     backup_dir.mkdir(parents=True, exist_ok=True)
 
     timestamp = datetime.utcnow().strftime("%Y%m%d_%H%M%S")
-    db_path = DATA_DIR / "anti_stalker.db"
+
+    settings = get_settings()
+    db_url = settings.database_url
+    db_path_str = db_url.replace("sqlite+aiosqlite:///", "")
+    db_path = Path(db_path_str)
+    if not db_path.is_absolute():
+        db_path = (Path(__file__).parent.parent / db_path_str).resolve()
+
     backup_path = backup_dir / f"backup_{timestamp}.db"
 
     if db_path.exists():

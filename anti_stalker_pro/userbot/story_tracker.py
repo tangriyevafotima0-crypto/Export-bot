@@ -50,7 +50,7 @@ class StoryTracker:
 
         try:
             stories_result = await self._telethon.safe_request(
-                client(GetAllStoriesRequest(next=""))
+                client(GetAllStoriesRequest(next=False))
             )
 
             if not stories_result or not hasattr(stories_result, "peer_stories"):
@@ -219,7 +219,7 @@ class StoryTracker:
 
         try:
             stories_result = await self._telethon.safe_request(
-                client(GetAllStoriesRequest(next=""))
+                client(GetAllStoriesRequest(next=False))
             )
 
             if not stories_result or not hasattr(stories_result, "peer_stories"):

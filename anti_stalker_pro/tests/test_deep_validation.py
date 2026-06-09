@@ -943,9 +943,9 @@ class TestAlertManagerLogic:
         alert.created_at = datetime.utcnow()
         alert.is_acknowledged = False
 
-        # One acknowledged alert for same user within an hour - still under limit
+        # One other alert for a different user - should not count
         other = MagicMock()
-        other.tracked_user_id = 1
+        other.tracked_user_id = 2
         other.id = 2
         other.created_at = datetime.utcnow() - timedelta(minutes=10)
         other.is_acknowledged = True
