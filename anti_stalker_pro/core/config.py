@@ -2,12 +2,40 @@
 
 Reads configuration from environment variables and .env file.
 All settings are validated and typed at startup.
+
+The .env file is resolved from multiple locations in priority order:
+1. Current working directory (.env)
+2. Project directory (same directory as this config module)
+3. ~/.anti_stalker/config/.env (deploy.sh default location)
 """
 
+from pathlib import Path
 from typing import Optional
 
 from pydantic_settings import BaseSettings
 from pydantic import Field
+
+
+def _resolve_env_file() -> Optional[str]:
+    """Resolve the .env file path from multiple candidate locations.
+
+    Searches for .env in the following order:
+    1. Current working directory
+    2. Project root (parent of core/ directory)
+    3. ~/.anti_stalker/config/.env (deploy.sh writes here)
+
+    Returns:
+        Path to the first .env file found, or None if not found.
+    """
+    candidates = [
+        Path.cwd() / ".env",
+        Path(__file__).parent.parent / ".env",
+        Path.home() / ".anti_stalker" / "config" / ".env",
+    ]
+    for candidate in candidates:
+        if candidate.is_file():
+            return str(candidate)
+    return None
 
 
 class Settings(BaseSettings):
@@ -109,7 +137,7 @@ class Settings(BaseSettings):
     log_level: str = Field(default="INFO", description="Application log level")
 
     model_config = {
-        "env_file": ".env",
+        "env_file": _resolve_env_file(),
         "env_file_encoding": "utf-8",
         "case_sensitive": False,
     }

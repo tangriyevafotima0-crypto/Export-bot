@@ -328,6 +328,12 @@ chmod 600 "${CONFIG_DIR}/.env"
 chmod 700 "${DATA_DIR}/sessions"
 success "Configuration saved to ${CONFIG_DIR}/.env"
 
+# Create symlink in project directory so Pydantic BaseSettings can find .env
+# regardless of which directory the process is started from
+ln -sf "${CONFIG_DIR}/.env" "${SCRIPT_DIR}/.env"
+chown -h "${REAL_USER}:${REAL_USER}" "${SCRIPT_DIR}/.env"
+success "Created .env symlink in project directory"
+
 # ─── Create systemd service ──────────────────────────────────────────────────
 echo ""
 info "Setting up systemd service..."
@@ -378,10 +384,10 @@ echo ""
 echo -e "  ${GREEN}sudo -u ${REAL_USER} ${VENV_PYTHON} ${SCRIPT_DIR}/main.py${NC}"
 echo ""
 echo -e "${CYAN}What will happen:${NC}"
-echo -e "  1. Telethon will ask for your phone number verification"
-echo -e "  2. A verification code will be sent to your Telegram app"
-echo -e "  3. Enter the code to complete authentication"
-echo -e "  4. A session file will be saved for future use"
+echo -e "  1. The system will send a verification code to your Telegram app"
+echo -e "  2. Enter the code when prompted"
+echo -e "  3. If 2FA is enabled, enter your 2FA password"
+echo -e "  4. A session file will be saved for future headless use"
 echo ""
 echo -e "${CYAN}After authentication, start the service:${NC}"
 echo ""

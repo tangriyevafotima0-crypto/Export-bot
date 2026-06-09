@@ -14,29 +14,17 @@ import uvicorn
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from flask import Flask
 from telethon import TelegramClient
-from telethon.errors import FloodWaitError
+from telethon.errors import FloodWaitError, SessionPasswordNeededError
 from telegram.ext import ApplicationBuilder
 
 from core.config import get_settings
 from core.database import init_db
 from core.logger import get_logger
+from bot.handler import setup_bot_handlers
 from bot.version_channel import VersionChannel
+from trapnet.flask_server import create_flask_app, set_main_loop
 
 logger = get_logger(__name__)
-
-
-def create_trap_server(settings) -> Flask:
-    """Create and configure the Flask trap server application.
-
-    Args:
-        settings: Application settings instance.
-
-    Returns:
-        Configured Flask application.
-    """
-    app = Flask(__name__)
-    app.config["SECRET_KEY"] = settings.dashboard_secret_key
-    return app
 
 
 def run_trap_server(app: Flask, host: str, port: int) -> None:
@@ -86,12 +74,67 @@ async def send_startup_notification(bot_app, chat_id: int) -> None:
         logger.warning(f"Failed to send startup notification: {e}")
 
 
+async def authenticate_userbot(client: TelegramClient, settings) -> bool:
+    """Run the interactive Telethon authentication flow.
+
+    Prompts for phone number verification code and optional 2FA password.
+    This is required on first run before the service can operate headlessly.
+
+    Args:
+        client: The Telethon client instance (must be connected).
+        settings: Application settings with telegram_phone.
+
+    Returns:
+        bool: True if authentication succeeded, False otherwise.
+    """
+    phone = settings.telegram_phone
+    logger.info(f"Starting authentication for phone: {phone}")
+
+    try:
+        await client.send_code_request(phone)
+        print("\n" + "=" * 50)
+        print("  Telegram Authentication Required")
+        print("=" * 50)
+        print(f"\n  A verification code has been sent to: {phone}")
+        print("  Check your Telegram app for the code.\n")
+
+        code = input("  Enter the verification code: ").strip()
+        if not code:
+            logger.error("No verification code entered.")
+            return False
+
+        try:
+            await client.sign_in(phone, code)
+            logger.info("Authentication successful.")
+            print("\n  Authentication successful!")
+            return True
+        except SessionPasswordNeededError:
+            print("\n  Two-factor authentication is enabled.")
+            password = input("  Enter your 2FA password: ").strip()
+            if not password:
+                logger.error("No 2FA password entered.")
+                return False
+            await client.sign_in(password=password)
+            logger.info("Authentication with 2FA successful.")
+            print("\n  Authentication with 2FA successful!")
+            return True
+
+    except FloodWaitError as e:
+        logger.error(f"Flood wait during auth: must wait {e.seconds} seconds")
+        print(f"\n  ERROR: Telegram rate limit. Wait {e.seconds} seconds and try again.")
+        return False
+    except Exception as e:
+        logger.error(f"Authentication failed: {e}", exc_info=True)
+        print(f"\n  ERROR: Authentication failed: {e}")
+        return False
+
+
 async def main() -> None:
     """Main async entry point that orchestrates all services.
 
     Initializes and starts:
     - Database connection and table creation
-    - Telethon userbot client
+    - Telethon userbot client (with interactive auth if needed)
     - APScheduler for periodic tasks
     - Flask trap server (in thread executor)
     - FastAPI dashboard server
@@ -115,10 +158,12 @@ async def main() -> None:
     )
 
     scheduler = AsyncIOScheduler()
+    scheduler_started = False
 
     bot_app = ApplicationBuilder().token(settings.bot_token).build()
 
-    trap_app = create_trap_server(settings)
+    # Use the fully configured Flask app from trapnet instead of bare Flask
+    trap_app = create_flask_app()
 
     executor = ThreadPoolExecutor(max_workers=2)
     loop = asyncio.get_event_loop()
@@ -147,18 +192,23 @@ async def main() -> None:
         await userbot.connect()
 
         if not await userbot.is_user_authorized():
-            logger.error(
-                "Userbot not authorized. Run authentication flow first."
-            )
-            await userbot.disconnect()
-            sys.exit(1)
+            logger.info("Userbot not authorized. Starting authentication flow...")
+            auth_success = await authenticate_userbot(userbot, settings)
+            if not auth_success:
+                logger.error("Authentication failed. Cannot continue.")
+                await userbot.disconnect()
+                sys.exit(1)
 
         logger.info("Userbot connected and authorized")
 
+        # Register bot command handlers before starting polling
+        setup_bot_handlers(bot_app)
+        logger.info("Bot command handlers registered")
+
         scheduler.start()
+        scheduler_started = True
         logger.info("APScheduler started")
 
-        from trapnet.flask_server import set_main_loop
         set_main_loop(loop)
 
         loop.run_in_executor(
@@ -204,25 +254,36 @@ async def main() -> None:
         await asyncio.sleep(e.seconds)
     except ConnectionError as e:
         logger.error(f"Connection error: {e}")
-    except KeyboardInterrupt:
-        logger.info("Keyboard interrupt received")
+    except (KeyboardInterrupt, SystemExit):
+        logger.info("Shutdown signal received")
     except Exception as e:
         logger.error(f"Unexpected error: {e}", exc_info=True)
     finally:
         logger.info("Shutting down services")
 
-        if bot_app.updater and bot_app.updater.running:
-            await bot_app.updater.stop()
-        if bot_app.running:
-            await bot_app.stop()
-        await bot_app.shutdown()
+        try:
+            if bot_app.updater and bot_app.updater.running:
+                await bot_app.updater.stop()
+            if bot_app.running:
+                await bot_app.stop()
+            await bot_app.shutdown()
+        except Exception as e:
+            logger.warning(f"Error shutting down bot: {e}")
 
-        scheduler.shutdown(wait=False)
+        # Only shutdown scheduler if it was actually started
+        if scheduler_started:
+            try:
+                scheduler.shutdown(wait=False)
+            except Exception as e:
+                logger.warning(f"Error shutting down scheduler: {e}")
 
         if dashboard_task and not dashboard_task.done():
             dashboard_task.cancel()
 
-        await userbot.disconnect()
+        try:
+            await userbot.disconnect()
+        except Exception as e:
+            logger.warning(f"Error disconnecting userbot: {e}")
 
         executor.shutdown(wait=False)
         logger.info("Shutdown complete")
