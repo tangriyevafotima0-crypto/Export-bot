@@ -4,7 +4,7 @@ Provides the VersionChannel class that posts version updates, changelog
 entries, and system status updates to a configured Telegram channel.
 """
 
-from datetime import datetime
+from datetime import datetime  # utcnow() is fine for Python 3.11; deprecated in 3.12+
 from typing import Optional
 
 from telegram import Bot
@@ -29,7 +29,10 @@ class VersionChannel:
 
         Args:
             bot: Optional python-telegram-bot Bot instance. If None,
-                creates one from settings.
+                creates one from settings. Note: when no bot is passed,
+                a standalone Bot instance is created that does not share
+                the application's connection pool or updater. Always prefer
+                passing the application bot explicitly (e.g. bot_app.bot).
         """
         self._settings = get_settings()
         self._bot = bot
@@ -37,6 +40,10 @@ class VersionChannel:
     @property
     def bot(self) -> Bot:
         """Get or create the Bot instance.
+
+        Note: The fallback path (creating a new Bot from token) produces a
+        standalone instance without shared session pool. Prefer injecting
+        the application bot via the constructor to avoid duplicate connections.
 
         Returns:
             Bot: The python-telegram-bot Bot instance.
