@@ -2,7 +2,7 @@
   "id": "FEAT-004",
   "type": "feat",
   "description": "Implement the dashboard/ module (FastAPI web server with JWT auth, WebSocket real-time updates, analytics/targets/reports/realtime API routes, and full HTML/JS/CSS frontend with Chart.js and Tailwind CSS), the storage/ module (in-memory cache, CSV/JSON/PDF export, automated backup), tests, Dockerfile, docker-compose.yml, and README.md.",
-  "status": "in_progress",
+  "status": "completed",
   "steps": [
     "Create /projects/sandbox/Export-bot/anti_stalker_pro/dashboard/app.py with FastAPI application: CORS middleware, static file serving, WebSocket endpoint at /ws/realtime, lifespan handler for startup/shutdown, mount all route modules.",
     "Create /projects/sandbox/Export-bot/anti_stalker_pro/dashboard/auth.py with JWT authentication: create_access_token(data), verify_token(token) using python-jose, get_current_user() dependency, login endpoint that verifies against DASHBOARD_SECRET_KEY. Token expires after JWT_EXPIRE_HOURS.",
@@ -41,5 +41,5 @@
     "cd /projects/sandbox/Export-bot/anti_stalker_pro && python -m py_compile dashboard/app.py && python -m py_compile dashboard/auth.py && echo 'Dashboard compile OK'"
   ],
   "blocked_reason": null,
-  "findings": ""
+  "findings": "pytest-asyncio 1.4.0 installed (latest available). Added pytest.ini with asyncio_mode=auto to enable automatic async test detection. All 35 tests pass. TelethonClient is imported lazily inside __init__ methods, so tests use __new__ pattern to create tracker instances without triggering the import. Added pytest and pytest-asyncio to requirements.txt for test runner availability."
 }
