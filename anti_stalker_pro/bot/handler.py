@@ -56,6 +56,7 @@ def setup_bot_handlers(application: Application) -> None:
     application.add_handler(CommandHandler("status", cmd_status))
     application.add_handler(CommandHandler("dashboard", cmd_dashboard))
     application.add_handler(CommandHandler("backup", cmd_backup))
+    application.add_handler(CommandHandler("version", cmd_version))
     application.add_handler(CallbackQueryHandler(handle_callback))
 
 
@@ -1073,6 +1074,31 @@ async def cmd_backup(
         await update.message.reply_text(
             "Database file not found. System may be using a new database."
         )
+
+
+async def cmd_version(
+    update: Update, context: ContextTypes.DEFAULT_TYPE
+) -> None:
+    """Handle /version command - show current application version.
+
+    Args:
+        update: The Telegram Update object.
+        context: The callback context.
+    """
+    if not _is_authorized(update):
+        await _unauthorized_response(update)
+        return
+
+    settings = get_settings()
+    text = (
+        "📦 <b>Version Information</b>\n\n"
+        f"<b>Version:</b> {settings.app_version}\n"
+        f"<b>System:</b> Anti-Stalker Intelligence System\n"
+        f"<b>Status:</b> Running\n"
+        f"<b>Time:</b> {datetime.utcnow().strftime('%Y-%m-%d %H:%M UTC')}\n"
+    )
+
+    await update.message.reply_text(text, parse_mode=ParseMode.HTML)
 
 
 async def handle_callback(

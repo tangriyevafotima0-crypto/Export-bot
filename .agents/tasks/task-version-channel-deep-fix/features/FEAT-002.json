@@ -2,7 +2,7 @@
   "id": "FEAT-002",
   "type": "feat",
   "description": "Create a version update channel feature - a Telegram channel module where the bot posts version/update announcements automatically. Includes a new bot/version_channel.py module with functions to announce new versions, changelog entries, and system status updates to a configured channel.",
-  "status": "pending",
+  "status": "in_progress",
   "steps": [
     "Add VERSION_CHANNEL_ID setting to core/config.py Settings class (optional int field, default None) - this is the Telegram channel ID where version updates are posted",
     "Add APP_VERSION constant to core/config.py (default '2.0.0')",

@@ -20,6 +20,7 @@ from telegram.ext import ApplicationBuilder
 from core.config import get_settings
 from core.database import init_db
 from core.logger import get_logger
+from bot.version_channel import VersionChannel
 
 logger = get_logger(__name__)
 
@@ -185,6 +186,16 @@ async def main() -> None:
 
         await send_startup_notification(bot_app, settings.my_telegram_id)
         logger.info("System fully operational")
+
+        # Announce system start via version channel (non-blocking)
+        try:
+            version_channel = VersionChannel(bot=bot_app.bot)
+            await version_channel.post_version_update(
+                version=settings.app_version,
+                changelog=["System started successfully"],
+            )
+        except Exception as e:
+            logger.warning(f"Failed to post startup version announcement: {e}")
 
         await userbot.run_until_disconnected()
 

@@ -4,6 +4,8 @@ Reads configuration from environment variables and .env file.
 All settings are validated and typed at startup.
 """
 
+from typing import Optional
+
 from pydantic_settings import BaseSettings
 from pydantic import Field
 
@@ -59,6 +61,15 @@ class Settings(BaseSettings):
     )
     max_tracked_users: int = Field(
         default=50, description="Maximum number of tracked users"
+    )
+
+    # Version channel
+    version_channel_id: Optional[int] = Field(
+        default=None,
+        description="Telegram channel ID for version update announcements",
+    )
+    app_version: str = Field(
+        default="2.0.0", description="Current application version"
     )
 
     # Logging
