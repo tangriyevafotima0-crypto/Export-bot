@@ -11,7 +11,6 @@ from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 import uvicorn
-from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from flask import Flask
 from telethon import TelegramClient
 from telethon.errors import FloodWaitError, SessionPasswordNeededError
@@ -22,6 +21,7 @@ from core.database import init_db
 from core.logger import get_logger
 from bot.handler import setup_bot_handlers
 from bot.version_channel import VersionChannel
+from scheduler.task_manager import TaskManager
 from trapnet.flask_server import create_flask_app, set_main_loop
 
 logger = get_logger(__name__)
@@ -41,12 +41,15 @@ def run_trap_server(app: Flask, host: str, port: int) -> None:
 async def run_dashboard(settings) -> None:
     """Start the FastAPI dashboard server.
 
+    Uses the fully configured dashboard app with all routes, auth,
+    and WebSocket endpoints registered.
+
     Args:
         settings: Application settings instance.
     """
-    from fastapi import FastAPI
+    from dashboard.app import create_dashboard_app
 
-    dashboard_app = FastAPI(title="Anti-Stalker Dashboard")
+    dashboard_app = create_dashboard_app()
 
     config = uvicorn.Config(
         dashboard_app,
@@ -157,8 +160,8 @@ async def main() -> None:
         settings.telegram_api_hash,
     )
 
-    scheduler = AsyncIOScheduler()
-    scheduler_started = False
+    task_manager = TaskManager()
+    task_manager.init_scheduler()
 
     bot_app = ApplicationBuilder().token(settings.bot_token).build()
 
@@ -205,9 +208,8 @@ async def main() -> None:
         setup_bot_handlers(bot_app)
         logger.info("Bot command handlers registered")
 
-        scheduler.start()
-        scheduler_started = True
-        logger.info("APScheduler started")
+        task_manager.start()
+        logger.info("Task scheduler started with all monitoring jobs")
 
         set_main_loop(loop)
 
@@ -271,9 +273,9 @@ async def main() -> None:
             logger.warning(f"Error shutting down bot: {e}")
 
         # Only shutdown scheduler if it was actually started
-        if scheduler_started:
+        if task_manager.is_running:
             try:
-                scheduler.shutdown(wait=False)
+                task_manager.stop()
             except Exception as e:
                 logger.warning(f"Error shutting down scheduler: {e}")
 
