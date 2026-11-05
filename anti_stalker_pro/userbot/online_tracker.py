@@ -170,7 +170,16 @@ class OnlineTracker:
 
         went_online = self._online_cache.pop(user_id)
         offline_time = status.was_online if status.was_online else now
-        duration = int((offline_time - went_online).total_seconds())
+
+        # Normalize aware/naive datetimes to avoid subtraction TypeError
+        norm_offline = offline_time
+        norm_went_online = went_online
+        if getattr(norm_offline, "tzinfo", None) is not None:
+            norm_offline = norm_offline.astimezone().replace(tzinfo=None)
+        if getattr(norm_went_online, "tzinfo", None) is not None:
+            norm_went_online = norm_went_online.astimezone().replace(tzinfo=None)
+
+        duration = int((norm_offline - norm_went_online).total_seconds())
 
         if duration < 0:
             duration = 0

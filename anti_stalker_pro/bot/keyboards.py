@@ -32,6 +32,9 @@ def main_menu_keyboard() -> InlineKeyboardMarkup:
             InlineKeyboardButton("⚙️ Settings", callback_data="menu_settings"),
             InlineKeyboardButton("📋 Status", callback_data="menu_status"),
         ],
+        [
+            InlineKeyboardButton("🌐 Dashboard", callback_data="menu_dashboard"),
+        ],
     ]
     return InlineKeyboardMarkup(keyboard)
 

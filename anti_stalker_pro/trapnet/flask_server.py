@@ -194,14 +194,33 @@ async def _store_visit(
         user_agent: Visitor's User-Agent string.
         referer: Visitor's referer URL.
     """
+    from sqlalchemy import select
     from core.database import get_session
-    from core.models import BioLinkVisit
+    from core.models import BioLinkVisit, TrackedUser, TrackingLink
     from trapnet.geolocator import GeoLocator
+    from trapnet.honeypot import resolve_code_target_user
 
     geolocator = GeoLocator()
     location = await geolocator.locate_ip(visitor_ip)
 
+    matched_tg_id = resolve_code_target_user(link_id)
+
     async for session in get_session():
+        resolved_user_id = None
+        if matched_tg_id:
+            user_res = await session.execute(
+                select(TrackedUser.id).where(TrackedUser.telegram_id == matched_tg_id)
+            )
+            resolved_user_id = user_res.scalar_one_or_none()
+
+        if not resolved_user_id:
+            link_res = await session.execute(
+                select(TrackingLink.tracked_user_id).where(
+                    TrackingLink.tracking_code == link_id
+                )
+            )
+            resolved_user_id = link_res.scalar_one_or_none()
+
         visit = BioLinkVisit(
             link_id=link_id,
             visitor_ip=visitor_ip,
@@ -210,6 +229,7 @@ async def _store_visit(
             country=location.get("country"),
             city=location.get("city"),
             visited_at=datetime.utcnow(),
+            matched_user_id=resolved_user_id,
         )
         session.add(visit)
         await session.commit()

@@ -69,7 +69,7 @@ class Settings(BaseSettings):
         description="Telegram channel ID for version update announcements",
     )
     app_version: str = Field(
-        default="2.0.0", description="Current application version"
+        default="2.1.0", description="Current application version"
     )
 
     # Logging

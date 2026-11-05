@@ -11,7 +11,6 @@ from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 import uvicorn
-from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from flask import Flask
 from telethon import TelegramClient
 from telethon.errors import FloodWaitError
@@ -20,7 +19,11 @@ from telegram.ext import ApplicationBuilder
 from core.config import get_settings
 from core.database import init_db
 from core.logger import get_logger
+from bot.handler import setup_bot_handlers
 from bot.version_channel import VersionChannel
+from dashboard.app import create_dashboard_app
+from scheduler.task_manager import TaskManager
+from trapnet.flask_server import create_flask_app, set_main_loop
 
 logger = get_logger(__name__)
 
@@ -32,11 +35,9 @@ def create_trap_server(settings) -> Flask:
         settings: Application settings instance.
 
     Returns:
-        Configured Flask application.
+        Configured Flask application with tracking routes.
     """
-    app = Flask(__name__)
-    app.config["SECRET_KEY"] = settings.dashboard_secret_key
-    return app
+    return create_flask_app()
 
 
 def run_trap_server(app: Flask, host: str, port: int) -> None:
@@ -56,9 +57,7 @@ async def run_dashboard(settings) -> None:
     Args:
         settings: Application settings instance.
     """
-    from fastapi import FastAPI
-
-    dashboard_app = FastAPI(title="Anti-Stalker Dashboard")
+    dashboard_app = create_dashboard_app()
 
     config = uvicorn.Config(
         dashboard_app,
@@ -114,9 +113,10 @@ async def main() -> None:
         settings.telegram_api_hash,
     )
 
-    scheduler = AsyncIOScheduler()
+    task_manager = TaskManager()
 
     bot_app = ApplicationBuilder().token(settings.bot_token).build()
+    setup_bot_handlers(bot_app)
 
     trap_app = create_trap_server(settings)
 
@@ -155,10 +155,10 @@ async def main() -> None:
 
         logger.info("Userbot connected and authorized")
 
-        scheduler.start()
-        logger.info("APScheduler started")
+        task_manager.init_scheduler()
+        task_manager.start()
+        logger.info("TaskManager and APScheduler started with all monitoring tasks")
 
-        from trapnet.flask_server import set_main_loop
         set_main_loop(loop)
 
         loop.run_in_executor(
@@ -217,7 +217,8 @@ async def main() -> None:
             await bot_app.stop()
         await bot_app.shutdown()
 
-        scheduler.shutdown(wait=False)
+        if task_manager.is_running:
+            task_manager.stop()
 
         if dashboard_task and not dashboard_task.done():
             dashboard_task.cancel()

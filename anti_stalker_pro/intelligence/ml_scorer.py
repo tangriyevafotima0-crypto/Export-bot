@@ -447,10 +447,12 @@ class StalkerScorer:
             return 0.0
 
         hours = np.array([vt.hour + vt.minute / 60.0 for vt in view_times])
-        variance = float(np.var(hours))
-        max_variance = 36.0
-        normalized_variance = min(1.0, variance / max_variance)
-        return 1.0 - normalized_variance
+        # Circular/directional statistics for time-of-day
+        angles = hours * (2.0 * np.pi / 24.0)
+        mean_sin = float(np.mean(np.sin(angles)))
+        mean_cos = float(np.mean(np.cos(angles)))
+        r = float(np.sqrt(mean_sin**2 + mean_cos**2))
+        return min(1.0, max(0.0, r))
 
     async def _feature_online_overlap(self, user_id: int) -> float:
         """Calculate online time overlap feature.

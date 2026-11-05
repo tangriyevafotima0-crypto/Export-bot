@@ -21,6 +21,21 @@ from core.models import BioLinkVisit, TrackedUser
 
 logger = get_logger(__name__)
 
+# Active tracking code to user_id mapping
+_ACTIVE_CODES: dict[str, int] = {}
+
+
+def resolve_code_target_user(tracking_code: str) -> Optional[int]:
+    """Resolve which user ID is targeted by the given tracking code.
+
+    Args:
+        tracking_code: The short tracking code from the URL.
+
+    Returns:
+        Optional[int]: The targeted Telegram user ID, or None if unknown.
+    """
+    return _ACTIVE_CODES.get(tracking_code)
+
 
 class BaitType(str, Enum):
     """Types of honeypot baits that can be deployed."""
@@ -56,10 +71,7 @@ class HoneypotManager:
         Returns:
             str: Full tracking URL (e.g., http://host:port/<code>).
         """
-        salt = secrets.token_hex(4)
-        raw = f"{user_id}:{salt}:{datetime.utcnow().timestamp()}"
-        digest = hashlib.sha256(raw.encode()).hexdigest()[:8]
-        code = self._make_short_code(digest)
+        code = self.generate_tracking_code(user_id)
 
         host = self._settings.trap_server_host
         port = self._settings.trap_server_port
@@ -81,7 +93,9 @@ class HoneypotManager:
         salt = secrets.token_hex(4)
         raw = f"{user_id}:{salt}:{datetime.utcnow().timestamp()}"
         digest = hashlib.sha256(raw.encode()).hexdigest()[:8]
-        return self._make_short_code(digest)
+        code = self._make_short_code(digest)
+        _ACTIVE_CODES[code] = user_id
+        return code
 
     async def schedule_bait_story(self, target_time: datetime) -> dict:
         """Schedule a bait story to be posted at the predicted optimal time.

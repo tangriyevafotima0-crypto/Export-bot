@@ -10,7 +10,10 @@ from typing import Optional
 
 from sqlalchemy import select, func
 from telethon.errors import FloodWaitError
-from telethon.tl.functions.messages import GetCommonChatsRequest
+from telethon.tl.functions.messages import (
+    GetCommonChatsRequest,
+    GetMessageReactionsListRequest,
+)
 from telethon.tl.types import (
     MessageActionEmpty,
     PeerUser,
@@ -109,14 +112,27 @@ class GroupMonitor:
 
                 if hasattr(message, "reactions") and message.reactions:
                     if message.sender_id == my_id:
-                        for reaction_result in (message.reactions.results or []):
-                            interactions.append({
-                                "user_id": None,
-                                "type": "reaction_to_my_msg",
-                                "message_id": message.id,
-                                "timestamp": message.date.isoformat(),
-                                "reaction": str(reaction_result.reaction),
-                            })
+                        try:
+                            reactions_res = await self._telethon.safe_request(
+                                client(GetMessageReactionsListRequest(
+                                    peer=group_id,
+                                    id=message.id,
+                                    limit=100,
+                                ))
+                            )
+                            if reactions_res and hasattr(reactions_res, "reactions"):
+                                for r in reactions_res.reactions:
+                                    reactor_id = getattr(r.peer_id, "user_id", None) if hasattr(r, "peer_id") else None
+                                    if reactor_id:
+                                        interactions.append({
+                                            "user_id": reactor_id,
+                                            "type": "reaction_to_my_msg",
+                                            "message_id": message.id,
+                                            "timestamp": message.date.isoformat(),
+                                            "reaction": str(getattr(r, "reaction", "")),
+                                        })
+                        except Exception as e:
+                            logger.debug(f"Could not fetch reactions list for message {message.id}: {e}")
 
         except FloodWaitError as e:
             logger.warning(

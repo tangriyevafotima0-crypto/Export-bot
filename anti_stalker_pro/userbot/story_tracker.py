@@ -10,7 +10,11 @@ from typing import Optional
 
 from sqlalchemy import select
 from telethon.errors import FloodWaitError
-from telethon.tl.functions.stories import GetAllStoriesRequest, GetStoryViewsListRequest
+from telethon.tl.functions.stories import (
+    GetAllStoriesRequest,
+    GetPeerStoriesRequest,
+    GetStoryViewsListRequest,
+)
 from telethon.tl.functions.users import GetFullUserRequest
 
 from core.config import get_settings
@@ -50,15 +54,22 @@ class StoryTracker:
 
         try:
             stories_result = await self._telethon.safe_request(
-                client(GetAllStoriesRequest(next=""))
+                client(GetPeerStoriesRequest(peer="me"))
             )
 
-            if not stories_result or not hasattr(stories_result, "peer_stories"):
+            story_items = []
+            if stories_result and hasattr(stories_result, "stories"):
+                story_items = stories_result.stories
+            elif stories_result and hasattr(stories_result, "peer_stories"):
+                for peer_story in stories_result.peer_stories:
+                    story_items.extend(peer_story.stories)
+
+            if not story_items:
                 logger.debug("No stories found to check")
                 return 0
 
-            for peer_story in stories_result.peer_stories:
-                for story in peer_story.stories:
+            for story in story_items:
+                if hasattr(story, "id"):
                     views_count = await self._process_story_viewers(story.id)
                     new_views += views_count
                     await asyncio.sleep(1)

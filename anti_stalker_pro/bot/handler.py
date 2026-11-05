@@ -1026,15 +1026,29 @@ async def cmd_dashboard(
         return
 
     settings = get_settings()
+    host = settings.dashboard_host
+    if host == "0.0.0.0":
+        host = "localhost"
+    dashboard_url = f"http://{host}:{settings.dashboard_port}"
+
     text = (
         "📊 <b>Dashboard Access</b>\n\n"
-        f"<b>URL:</b> http://{settings.dashboard_host}:{settings.dashboard_port}\n"
+        f"<b>URL:</b> {dashboard_url}\n"
         f"<b>Status:</b> Running\n\n"
         "Open the dashboard in your browser for a full interactive view "
         "of monitoring data, charts, and management tools."
     )
 
-    await update.message.reply_text(text, parse_mode=ParseMode.HTML)
+    from telegram import InlineKeyboardButton, InlineKeyboardMarkup, WebAppInfo
+    keyboard = []
+    if dashboard_url.startswith("https://"):
+        keyboard.append([InlineKeyboardButton("🌐 Open WebApp", web_app=WebAppInfo(url=dashboard_url))])
+    else:
+        keyboard.append([InlineKeyboardButton("🌐 Open Dashboard", url=dashboard_url)])
+
+    await update.message.reply_text(
+        text, parse_mode=ParseMode.HTML, reply_markup=InlineKeyboardMarkup(keyboard)
+    )
 
 
 async def cmd_backup(
@@ -1181,6 +1195,19 @@ async def handle_callback(
         await query.edit_message_text(
             "📋 Use /status for full system status.",
             parse_mode=ParseMode.HTML,
+        )
+    elif data == "menu_dashboard":
+        settings = get_settings()
+        host = settings.dashboard_host
+        if host == "0.0.0.0":
+            host = "localhost"
+        dash_url = f"http://{host}:{settings.dashboard_port}"
+        from telegram import InlineKeyboardButton, InlineKeyboardMarkup, WebAppInfo
+        btn = [InlineKeyboardButton("🌐 Open WebApp", web_app=WebAppInfo(url=dash_url))] if dash_url.startswith("https://") else [InlineKeyboardButton("🌐 Open Dashboard", url=dash_url)]
+        await query.edit_message_text(
+            f"🌐 <b>Dashboard:</b> {dash_url}",
+            parse_mode=ParseMode.HTML,
+            reply_markup=InlineKeyboardMarkup([btn, [InlineKeyboardButton("◀️ Back", callback_data="main_menu")]]),
         )
     elif data == "cancel_action":
         await query.edit_message_text("Action cancelled.")

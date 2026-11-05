@@ -145,14 +145,14 @@ class TelethonClient:
             await asyncio.sleep(self._min_request_interval - elapsed)
         self._last_request_time = time.time()
 
-    async def safe_request(self, coro):
+    async def safe_request(self, target, *args, **kwargs):
         """Execute a Telegram API request with rate limiting and FloodWait handling.
 
         Applies rate limiting before the request and handles FloodWaitError
-        by sleeping and retrying.
+        by sleeping and retrying if callable.
 
         Args:
-            coro: An awaitable Telegram API call.
+            target: A coroutine or callable Telegram API call.
 
         Returns:
             The result of the API call.
@@ -162,13 +162,22 @@ class TelethonClient:
         """
         await self.rate_limit()
         try:
-            result = await coro
-            return result
+            if callable(target):
+                result = target(*args, **kwargs)
+                if asyncio.iscoroutine(result) or hasattr(result, "__await__"):
+                    return await result
+                return result
+            return await target
         except FloodWaitError as e:
             logger.warning(f"FloodWaitError: sleeping {e.seconds}s before retry")
             await asyncio.sleep(e.seconds)
             self._last_request_time = time.time()
-            return await coro
+            if callable(target):
+                result = target(*args, **kwargs)
+                if asyncio.iscoroutine(result) or hasattr(result, "__await__"):
+                    return await result
+                return result
+            raise
         except Exception as e:
             logger.error(f"Telegram API request failed: {e}")
             raise

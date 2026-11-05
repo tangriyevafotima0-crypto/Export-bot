@@ -70,7 +70,13 @@ class BackupManager:
         backup_filename = f"backup_{timestamp}.db"
         backup_path = BACKUP_DIR / backup_filename
 
-        shutil.copy2(str(db_path), str(backup_path))
+        import sqlite3
+        try:
+            with sqlite3.connect(str(db_path)) as src, sqlite3.connect(str(backup_path)) as dst:
+                src.backup(dst)
+        except Exception:
+            shutil.copy2(str(db_path), str(backup_path))
+
         logger.info(f"Database backup created: {backup_path}")
         return str(backup_path)
 

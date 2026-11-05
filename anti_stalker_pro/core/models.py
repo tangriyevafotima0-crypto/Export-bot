@@ -3,13 +3,18 @@
 Defines all database tables for tracking users, events, and analysis results.
 """
 
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional
 
-from sqlalchemy import ForeignKey, JSON, Text, Integer, Float, Boolean, String
+from sqlalchemy import ForeignKey, JSON, Text, Integer, BigInteger, Float, Boolean, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from core.database import Base
+
+
+def get_utc_now() -> datetime:
+    """Return current UTC datetime."""
+    return datetime.now(timezone.utc)
 
 
 class TrackedUser(Base):
@@ -18,7 +23,7 @@ class TrackedUser(Base):
     __tablename__ = "tracked_users"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    telegram_id: Mapped[int] = mapped_column(Integer, unique=True, nullable=False)
+    telegram_id: Mapped[int] = mapped_column(BigInteger, unique=True, nullable=False)
     username: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
     first_name: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
     last_name: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
@@ -143,4 +148,19 @@ class Alert(Base):
     message: Mapped[str] = mapped_column(Text, nullable=False)
     details: Mapped[Optional[dict]] = mapped_column(JSON, nullable=True)
     is_acknowledged: Mapped[bool] = mapped_column(Boolean, default=False)
+    created_at: Mapped[datetime] = mapped_column(default=datetime.utcnow)
+
+
+class TrackingLink(Base):
+    """A generated honeypot tracking link mapped to a tracked user."""
+
+    __tablename__ = "tracking_links"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    tracking_code: Mapped[str] = mapped_column(String(100), unique=True, nullable=False, index=True)
+    tracked_user_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("tracked_users.id"), nullable=False
+    )
+    bait_type: Mapped[str] = mapped_column(String(50), default="unique_link_bait")
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     created_at: Mapped[datetime] = mapped_column(default=datetime.utcnow)

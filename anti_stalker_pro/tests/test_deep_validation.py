@@ -616,7 +616,14 @@ class TestDashboardApp:
         )
         from dashboard.app import create_dashboard_app
         app = create_dashboard_app()
-        route_paths = [route.path for route in app.routes]
+        route_paths = []
+        for route in app.routes:
+            if hasattr(route, "path"):
+                route_paths.append(route.path)
+            elif hasattr(route, "routes"):
+                for sub_r in route.routes:
+                    if hasattr(sub_r, "path"):
+                        route_paths.append(sub_r.path)
         assert "/health" in route_paths
         assert "/api/auth/login" in route_paths
         assert "/api/auth/verify" in route_paths
